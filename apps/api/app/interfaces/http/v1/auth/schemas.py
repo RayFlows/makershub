@@ -37,7 +37,21 @@ class TokenResponse(BaseModel):
     """登录成功后的令牌响应。"""
 
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
     expires_at: datetime
+    refresh_expires_at: datetime
     user: UserSummary
+
+
+class RefreshTokenRequest(BaseModel):
+    """刷新访问令牌请求。"""
+
+    refresh_token: str = Field(min_length=1, description="登录或上次刷新返回的 refresh token")
+
+
+class LogoutRequest(BaseModel):
+    """退出登录请求。"""
+
+    refresh_token: str = Field(min_length=1, description="需要撤销的 refresh token")

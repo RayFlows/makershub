@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.database import get_session
 from app.core.database.base import Base
 from app.main import create_app
-from app.modules.identity.models import EmailVerificationCode, LocalAccount, User, WechatAccount
+from app.modules.identity.models import AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount
 from app.modules.organization.models import Position, UserPosition
 
 
@@ -20,7 +20,7 @@ def auth_client(tmp_path: Path) -> Iterator[TestClient]:
     """创建使用临时 SQLite 数据库的认证接口测试客户端。"""
 
     # 显式引用模型，确保 Base.metadata 在 create_all 前已经收集身份和组织表。
-    _ = (EmailVerificationCode, LocalAccount, User, WechatAccount, Position, UserPosition)
+    _ = (AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount, Position, UserPosition)
 
     database_path = tmp_path / "auth.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{database_path}")
@@ -60,10 +60,13 @@ def test_wechat_dev_login_returns_token_and_me(auth_client: TestClient) -> None:
     body = response.json()
     assert body["success"] is True
     token = body["data"]["access_token"]
+    refresh_token = body["data"]["refresh_token"]
     user_id = body["data"]["user"]["id"]
     assert body["data"]["token_type"] == "bearer"
     assert body["data"]["expires_in"] > 0
     assert body["data"]["expires_at"]
+    assert refresh_token
+    assert body["data"]["refresh_expires_at"]
     assert body["data"]["user"]["display_name"] == "开发用户"
 
     me_response = auth_client.get(
@@ -76,6 +79,62 @@ def test_wechat_dev_login_returns_token_and_me(auth_client: TestClient) -> None:
     assert me_body["success"] is True
     assert me_body["data"]["user"]["id"] == user_id
     assert me_body["data"]["claims"]["channel"] == "wechat"
+
+
+def test_refresh_token_rotates_refresh_token(auth_client: TestClient) -> None:
+    login_response = auth_client.post(
+        "/api/v1/auth/wechat/login",
+        json={"dev_openid": "dev_openid_refresh_1"},
+    )
+    refresh_token = login_response.json()["data"]["refresh_token"]
+
+    refresh_response = auth_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+
+    assert refresh_response.status_code == 200
+    refresh_body = refresh_response.json()
+    next_access_token = refresh_body["data"]["access_token"]
+    next_refresh_token = refresh_body["data"]["refresh_token"]
+    assert next_refresh_token != refresh_token
+
+    old_refresh_response = auth_client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": refresh_token},
+    )
+    assert old_refresh_response.status_code == 401
+    assert old_refresh_response.json()["error"]["code"] == "INVALID_REFRESH_TOKEN"
+
+    me_response = auth_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {next_access_token}"},
+    )
+    assert me_response.status_code == 200
+
+
+def test_logout_revokes_access_session(auth_client: TestClient) -> None:
+    login_response = auth_client.post(
+        "/api/v1/auth/wechat/login",
+        json={"dev_openid": "dev_openid_logout_1"},
+    )
+    access_token = login_response.json()["data"]["access_token"]
+    refresh_token = login_response.json()["data"]["refresh_token"]
+
+    logout_response = auth_client.post(
+        "/api/v1/auth/logout",
+        json={"refresh_token": refresh_token},
+    )
+
+    assert logout_response.status_code == 200
+    assert logout_response.json()["data"]["revoked"] is True
+
+    me_response = auth_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert me_response.status_code == 401
+    assert me_response.json()["error"]["code"] == "AUTH_SESSION_REVOKED"
 
 
 def test_wechat_dev_login_reuses_same_user(auth_client: TestClient) -> None:

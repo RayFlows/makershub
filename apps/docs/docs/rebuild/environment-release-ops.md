@@ -177,9 +177,9 @@ pnpm dev:docs
 - 应用基础配置，例如 `APP_ENV`、`APP_NAME`；
 - 数据库配置，例如 `DATABASE_URL`；
 - 对象存储配置，例如 `MINIO_ENDPOINT`、bucket 名称；
-- 认证配置，例如 JWT 密钥和过期时间；
+- 认证配置，例如 `JWT_SECRET_KEY`、`ACCESS_TOKEN_EXPIRE_MINUTES`、`REFRESH_TOKEN_EXPIRE_DAYS`；
 - 跨域配置，例如 `CORS_ORIGINS`；
-- 外部服务配置，例如微信小程序、邮件、短信；
+- 外部服务配置，例如 `WECHAT_APP_ID`、`WECHAT_APP_SECRET`、邮件、短信；
 - 前端构建时配置，例如 API base URL。
 
 禁止将以下内容提交到仓库：

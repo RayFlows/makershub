@@ -19,6 +19,7 @@ from app.core.errors import AppError
 from app.core.security import decode_access_token
 from app.modules.identity.models import User
 from app.modules.identity.repository import IdentityRepository
+from app.modules.identity.service import validate_auth_session
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,13 @@ async def get_current_user(
         user_id = int(claims["sub"])
     except (TypeError, ValueError) as exc:
         raise AppError("INVALID_ACCESS_TOKEN", "访问令牌用户标识不合法", status_code=401) from exc
+
+    try:
+        auth_session_id = int(claims["sid"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise AppError("AUTH_SESSION_MISSING", "访问令牌缺少会话标识", status_code=401) from exc
+
+    await validate_auth_session(session, auth_session_id=auth_session_id)
 
     repository = IdentityRepository(session)
     user = await repository.get_user_by_id(user_id)

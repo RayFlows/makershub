@@ -30,10 +30,8 @@ class Settings(BaseSettings):
         validation_alias="JWT_SECRET_KEY",
     )
     jwt_algorithm: str = Field("HS256", validation_alias="JWT_ALGORITHM")
-    access_token_expire_minutes: int = Field(
-        60 * 24 * 7,
-        validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
-    )
+    access_token_expire_minutes: int = Field(120, validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES")
+    refresh_token_expire_days: int = Field(30, validation_alias="REFRESH_TOKEN_EXPIRE_DAYS")
 
     # --- 微信小程序登录配置 ---
     wechat_app_id: str | None = Field(None, validation_alias="WECHAT_APP_ID")

@@ -46,6 +46,10 @@ class User(Base, IdMixin, TimestampMixin, SoftDeleteMixin):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    auth_sessions: Mapped[list[AuthSession]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class LocalAccount(Base, IdMixin, TimestampMixin):
@@ -100,6 +104,43 @@ class WechatAccount(Base, IdMixin, TimestampMixin):
     user: Mapped[User] = relationship(back_populates="wechat_account")
 
     __table_args__ = (Index("ix_wechat_accounts_openid_status", "openid", "status"),)
+
+
+class AuthSession(Base, IdMixin, TimestampMixin):
+    """登录会话。
+
+    access token 是短期 JWT，不落库；refresh token 是长期凭证，只保存哈希值。
+    后续退出登录、踢下线、设备会话管理和异常撤销都依赖这张表。
+    """
+
+    __tablename__ = "auth_sessions"
+
+    # --- 会话归属 ---
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    # --- refresh token 状态 ---
+    refresh_token_hash: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False)
+    client_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoke_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # --- 客户端线索 ---
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="auth_sessions")
+
+    __table_args__ = (
+        Index("ix_auth_sessions_user_id_status", "user_id", "status"),
+        Index("ix_auth_sessions_refresh_token_hash_status", "refresh_token_hash", "status"),
+    )
 
 
 class EmailVerificationCode(Base, IdMixin, TimestampMixin):

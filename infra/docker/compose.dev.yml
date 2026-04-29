@@ -78,6 +78,13 @@ services:
     environment:
       APP_ENV: local
       UV_PROJECT_ENVIRONMENT: /workspace/.venv/api
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-local-env}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-120}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-30}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      WECHAT_CODE2SESSION_URL: ${WECHAT_CODE2SESSION_URL:-https://api.weixin.qq.com/sns/jscode2session}
       DATABASE_URL: ${DATABASE_URL:-mysql+aiomysql://makershub:makershub@mysql:3306/makershub_dev}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-makershub}

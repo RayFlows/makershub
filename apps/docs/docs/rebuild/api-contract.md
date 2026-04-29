@@ -72,7 +72,25 @@
 - 同一个用户主体可以挂接本地账号和微信身份，但第一版普通用户不能先注册网页账号再绑定微信；
 - 第一个 `999` 是例外，可以通过受控运维初始化命令先创建本地账号，后续再绑定微信；
 - 访问令牌的 `sub` 使用内部用户主键，不使用微信 `openid` 或邮箱；
+- 访问令牌必须携带登录会话 ID，后端通过 `auth_sessions` 判断会话是否已退出、撤销或过期；
 - 访问令牌只证明用户是谁，接口授权必须继续检查权限点和作用域。
+
+微信登录说明：
+
+- 小程序端调用 `wx.login` 获取一次性 `code`；
+- 后端调用微信 `code2Session`，用 `appid`、`secret`、`js_code` 和 `authorization_code` 换取 `openid`、`session_key`，以及可能存在的 `unionid`；
+- `openid` 是当前小程序下的用户标识，适合作为小程序登录凭证挂接字段；
+- `unionid` 是同一微信开放平台账号下跨应用的用户标识，只有小程序绑定开放平台账号等条件满足时才稳定返回；
+- MakersHub 内部用户主体始终使用 `users.id`，不把 `openid` 或 `unionid` 当作业务主键。
+
+会话机制：
+
+- 登录成功后同时返回短期 `access_token` 和长期 `refresh_token`；
+- `access_token` 用于接口访问，默认有效期 120 分钟；
+- `refresh_token` 用于续签令牌，默认有效期 30 天，只保存哈希到 `auth_sessions`；
+- 每次调用 `/api/v1/auth/refresh` 都会轮换 refresh token，旧 refresh token 立即失效；
+- 调用 `/api/v1/auth/logout` 会撤销当前 refresh token 对应的会话，携带该会话 ID 的 access token 也会被拒绝；
+- 小程序可以在 access token 过期后重新执行 `wx.login`，也可以复用 refresh token 续签；正式迁移时统一封装在小程序 API 客户端里。
 
 请求头：
 
@@ -85,9 +103,11 @@ Authorization: Bearer <token>
 ```json
 {
   "access_token": "<jwt>",
+  "refresh_token": "<opaque-refresh-token>",
   "token_type": "bearer",
   "expires_in": 7200,
   "expires_at": "2026-04-29T16:30:00Z",
+  "refresh_expires_at": "2026-05-29T14:30:00Z",
   "user": {
     "id": 1,
     "display_name": "用户",
@@ -101,8 +121,8 @@ Authorization: Bearer <token>
 
 - 客户端可以缓存访问令牌，但缓存内容必须包含 `expires_at`；
 - 客户端启动时不能只判断本地是否存在 token，应先检查本地过期时间，再调用 `/api/v1/auth/me` 确认后端仍接受该 token；
-- `/auth/me` 或业务接口返回 `401` 且错误码为 `ACCESS_TOKEN_EXPIRED`、`INVALID_ACCESS_TOKEN`、`AUTH_USER_NOT_FOUND` 时，客户端必须清理认证相关缓存；
-- 小程序第一版不引入 refresh token。访问令牌过期后重新执行 `wx.login` 和 `/auth/wechat/login`，重新签发访问令牌；
+- `/auth/me` 或业务接口返回 `401` 且错误码为 `ACCESS_TOKEN_EXPIRED`、`INVALID_ACCESS_TOKEN`、`AUTH_SESSION_REVOKED`、`AUTH_SESSION_NOT_FOUND`、`AUTH_USER_NOT_FOUND` 时，客户端必须清理认证相关缓存；
+- access token 过期时，客户端应优先调用 `/auth/refresh` 续签；refresh token 失效后再重新走登录流程；
 - 清理认证缓存不等于清空全部本地存储，配置、非敏感草稿和页面偏好不应被一起删除。
 
 ### 权限
@@ -157,6 +177,8 @@ Authorization: Bearer <token>
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/wechat/login` | 小程序微信登录 |
+| `POST` | `/api/v1/auth/refresh` | 使用 refresh token 续签并轮换令牌 |
+| `POST` | `/api/v1/auth/logout` | 退出登录并撤销会话 |
 | `POST` | `/api/v1/auth/email/send-code` | 发送邮箱验证码 |
 | `POST` | `/api/v1/auth/email/first-login` | 网页端首次邮箱验证码登录 |
 | `POST` | `/api/v1/auth/password/set` | 首次设置密码 |
@@ -172,7 +194,7 @@ Authorization: Bearer <token>
 - 第一版不支持“网页端先注册普通账号，再绑定微信”的流程；
 - 第一个 `999` 可以通过部署初始化命令创建本地账号，不要求已有微信身份；
 - `/auth/wechat/login` 生产环境必须使用微信 `code2session`；本地开发和测试环境可以使用受控 `dev_openid`，生产环境必须禁用；
-- `/auth/wechat/login` 必须返回 `expires_in` 和 `expires_at`，小程序据此判断本地 token 是否已经明显过期；
+- `/auth/wechat/login` 必须返回 `expires_in`、`expires_at`、`refresh_token` 和 `refresh_expires_at`，客户端据此维护登录态；
 - `/auth/me` 是客户端启动态校验接口，不能被页面层绕过成本地 token 存在性判断；
 - 邮箱验证码 5 分钟有效；
 - 同一邮箱 1 小时最多发送 10 次；
@@ -187,7 +209,8 @@ Authorization: Bearer <token>
 - 已完成唯一 `999` 初始化服务；
 - 已完成微信身份登录创建或复用用户主体的服务层逻辑；
 - 已完成已登录微信用户绑定邮箱并生成待设置密码本地账号的服务层逻辑；
-- 已完成 `/api/v1/auth/wechat/login` 和 `/api/v1/auth/me` 的 HTTP 接口，登录响应已返回令牌过期信息；
+- 已完成 `/api/v1/auth/wechat/login`、`/api/v1/auth/refresh`、`/api/v1/auth/logout` 和 `/api/v1/auth/me` 的 HTTP 接口；
+- 已完成短期 access token、长期 refresh token、会话表、refresh token 轮换和退出撤销；
 - 邮箱验证码、首次设置密码、邮箱密码登录和密码重置接口仍待实现。
 
 ### 组织与成员

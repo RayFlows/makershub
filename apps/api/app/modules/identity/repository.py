@@ -8,10 +8,12 @@ Repository 只封装数据库读写，不决定业务是否允许执行。
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.identity.models import LocalAccount, User, WechatAccount
+from app.modules.identity.models import AuthSession, LocalAccount, User, WechatAccount
 from app.modules.organization.models import Position, UserPosition
 
 
@@ -49,6 +51,17 @@ class IdentityRepository:
         """按内部用户主键查找用户主体。"""
 
         return await self.session.get(User, user_id)
+
+    async def get_auth_session_by_id(self, auth_session_id: int) -> AuthSession | None:
+        """按会话 ID 查找登录会话。"""
+
+        return await self.session.get(AuthSession, auth_session_id)
+
+    async def get_auth_session_by_refresh_hash(self, refresh_token_hash: str) -> AuthSession | None:
+        """按 refresh token 哈希查找登录会话。"""
+
+        statement = select(AuthSession).where(AuthSession.refresh_token_hash == refresh_token_hash)
+        return await self.session.scalar(statement)
 
     async def get_active_super_admin_position(self) -> UserPosition | None:
         """查找当前系统中是否已经存在有效 999。"""
@@ -171,3 +184,75 @@ class IdentityRepository:
         self.session.add(account)
         await self.session.flush()
         return account
+
+    async def create_auth_session(
+        self,
+        *,
+        user_id: int,
+        refresh_token_hash: str,
+        channel: str,
+        client_type: str,
+        expires_at: datetime,
+        user_agent: str | None,
+        ip_address: str | None,
+    ) -> AuthSession:
+        """创建登录会话。"""
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+        auth_session = AuthSession(
+            user_id=user_id,
+            refresh_token_hash=refresh_token_hash,
+            channel=channel,
+            client_type=client_type,
+            status="active",
+            expires_at=expires_at,
+            last_used_at=now,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
+        self.session.add(auth_session)
+        await self.session.flush()
+        return auth_session
+
+    async def rotate_auth_session(
+        self,
+        auth_session: AuthSession,
+        *,
+        refresh_token_hash: str,
+        expires_at: datetime,
+        user_agent: str | None,
+        ip_address: str | None,
+    ) -> AuthSession:
+        """轮换 refresh token，并刷新会话最后使用时间。"""
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+        auth_session.refresh_token_hash = refresh_token_hash
+        auth_session.expires_at = expires_at
+        auth_session.last_used_at = now
+        if user_agent is not None:
+            auth_session.user_agent = user_agent
+        if ip_address is not None:
+            auth_session.ip_address = ip_address
+        await self.session.flush()
+        return auth_session
+
+    async def revoke_auth_session(
+        self,
+        auth_session: AuthSession,
+        *,
+        reason: str,
+    ) -> AuthSession:
+        """撤销登录会话。"""
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+        auth_session.status = "revoked"
+        auth_session.revoked_at = now
+        auth_session.revoke_reason = reason
+        await self.session.flush()
+        return auth_session

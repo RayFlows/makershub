@@ -15,11 +15,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config.settings import get_settings
 from app.core.database import get_session
 from app.core.errors import AppError
-from app.core.security import issue_access_token
 from app.infrastructure.wechat import WechatSession, exchange_code_for_session
 from app.interfaces.http.dependencies import CurrentUser, get_current_user
-from app.interfaces.http.v1.auth.schemas import TokenResponse, UserSummary, WechatLoginRequest
-from app.modules.identity.service import login_wechat_identity
+from app.interfaces.http.v1.auth.schemas import (
+    LogoutRequest,
+    RefreshTokenRequest,
+    TokenResponse,
+    UserSummary,
+    WechatLoginRequest,
+)
+from app.modules.identity.service import (
+    AuthTokenPair,
+    issue_auth_token_pair,
+    login_wechat_identity,
+    refresh_auth_token_pair,
+    revoke_auth_token_pair,
+)
 from app.shared.request_context import get_request_id
 from app.shared.responses import success_response
 
@@ -35,6 +46,27 @@ def build_user_summary(user) -> UserSummary:
         avatar_url=user.avatar_url,
         status=user.status,
     )
+
+
+def build_token_response(token_pair: AuthTokenPair) -> TokenResponse:
+    """把服务层令牌对转换成 HTTP 响应模型。"""
+
+    return TokenResponse(
+        access_token=token_pair.access_token.token,
+        refresh_token=token_pair.refresh_token,
+        expires_in=token_pair.access_token.expires_in,
+        expires_at=token_pair.access_token.expires_at,
+        refresh_expires_at=token_pair.refresh_expires_at,
+        user=build_user_summary(token_pair.user),
+    )
+
+
+def get_client_ip(request: Request) -> str | None:
+    """提取客户端 IP。"""
+
+    if request.client is None:
+        return None
+    return request.client.host
 
 
 async def resolve_wechat_session(payload: WechatLoginRequest) -> WechatSession:
@@ -77,19 +109,58 @@ async def wechat_login(
         session_key_hash=None,
         display_name=payload.display_name,
     )
-    await session.commit()
 
-    token = issue_access_token(
-        subject=result.user.id,
-        extra_claims={"channel": "wechat"},
+    token_pair = await issue_auth_token_pair(
+        session,
+        user=result.user,
+        channel="wechat",
+        client_type="miniapp",
+        user_agent=request.headers.get("user-agent"),
+        ip_address=get_client_ip(request),
     )
-    data = TokenResponse(
-        access_token=token.token,
-        expires_in=token.expires_in,
-        expires_at=token.expires_at,
-        user=build_user_summary(result.user),
-    )
+    await session.commit()
+    data = build_token_response(token_pair)
     return success_response(data.model_dump(mode="json"), request_id=get_request_id(request))
+
+
+@router.post("/refresh")
+async def refresh_token(
+    payload: RefreshTokenRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    使用 refresh token 续签令牌。
+
+    refresh token 每次使用都会轮换，客户端必须保存本次响应里的新 refresh token。
+    """
+
+    token_pair = await refresh_auth_token_pair(
+        session,
+        refresh_token=payload.refresh_token,
+        user_agent=request.headers.get("user-agent"),
+        ip_address=get_client_ip(request),
+    )
+    await session.commit()
+    data = build_token_response(token_pair)
+    return success_response(data.model_dump(mode="json"), request_id=get_request_id(request))
+
+
+@router.post("/logout")
+async def logout(
+    payload: LogoutRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """退出登录并撤销 refresh token 对应的登录会话。"""
+
+    await revoke_auth_token_pair(
+        session,
+        refresh_token=payload.refresh_token,
+        reason="logout",
+    )
+    await session.commit()
+    return success_response({"revoked": True}, request_id=get_request_id(request))
 
 
 @router.get("/me")

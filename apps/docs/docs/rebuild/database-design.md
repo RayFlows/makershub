@@ -84,6 +84,33 @@
 - 第一版普通用户以微信身份作为进入系统的前置身份，不依赖 `unionid` 才能启动。
 - 第一版不允许用户自助解绑微信。
 
+### `auth_sessions`
+
+登录会话表，用于支撑短期 access token 和长期 refresh token。
+
+核心字段：
+
+- `id`；
+- `user_id`；
+- `refresh_token_hash`，refresh token 哈希值，不保存明文；
+- `channel`：登录渠道，例如 `wechat`、`password`；
+- `client_type`：客户端类型，例如 `miniapp`、`web`、`admin`；
+- `status`：`active`、`revoked` 等；
+- `expires_at`：refresh token 过期时间；
+- `last_used_at`；
+- `revoked_at`；
+- `revoke_reason`；
+- `user_agent`；
+- `ip_address`。
+
+规则：
+
+- access token 是短期 JWT，不落库，但必须携带内部用户 ID 和会话 ID。
+- refresh token 是长期随机凭证，只保存哈希值。
+- 每次 refresh 都会轮换 refresh token，旧 refresh token 立即失效。
+- 退出登录、后台踢下线或风控撤销会话时，应更新 `status`、`revoked_at` 和 `revoke_reason`。
+- `/auth/me` 校验 access token 时必须同时检查会话是否仍然有效。
+
 ### `email_verification_codes`
 
 邮箱验证码记录表。
@@ -109,12 +136,12 @@
 
 当前实现状态：
 
-- 已创建 `users`、`local_accounts`、`wechat_accounts`、`email_verification_codes`；
+- 已创建 `users`、`local_accounts`、`wechat_accounts`、`auth_sessions`、`email_verification_codes`；
 - 已允许 `local_accounts.password_hash` 在首次设置密码前为空；
 - 已创建密码哈希工具；
 - 已创建初始化唯一 `999` 的服务；
 - 已创建微信用户主体和待设置密码本地账号的服务层逻辑；
-- 已创建微信登录接口、访问令牌签发和当前用户校验接口；
+- 已创建微信登录接口、访问令牌签发、refresh token 轮换、退出撤销和当前用户校验接口；
 - 验证码发送、首次设置密码和邮箱密码登录仍待实现。
 
 ## 组织与成员

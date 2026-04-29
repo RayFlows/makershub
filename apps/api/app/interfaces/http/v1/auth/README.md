@@ -7,6 +7,8 @@
 ## 已落地接口
 
 - `POST /api/v1/auth/wechat/login`：小程序微信登录，支持本地开发态 `dev_openid`；
+- `POST /api/v1/auth/refresh`：使用 refresh token 续签并轮换令牌；
+- `POST /api/v1/auth/logout`：撤销 refresh token 对应的登录会话；
 - `GET /api/v1/auth/me`：通过 `Authorization: Bearer <token>` 获取当前登录用户摘要。
 
 ## 后续待实现
