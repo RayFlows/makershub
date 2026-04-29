@@ -182,14 +182,43 @@ function App() {
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: "#c96442",
-          colorInfo: "#c96442",
-          colorSuccess: "#7c6f58",
+          colorBgBase: "#FAF9F5",
+          colorBgContainer: "#FFFFFF",
+          colorText: "#141413",
+          colorTextSecondary: "#3D3D3A",
+          colorTextTertiary: "#73726C",
+          colorBorder: "rgba(31, 30, 29, 0.15)",
+          colorBorderSecondary: "rgba(31, 30, 29, 0.1)",
+          colorPrimary: "#ae5630",
+          colorInfo: "#ae5630",
+          colorSuccess: "#437426",
           colorWarning: "#b8843a",
-          colorError: "#b55348",
-          borderRadius: 6,
+          colorError: "#a73d39",
+          borderRadius: 10,
+          borderRadiusLG: 16,
+          borderRadiusSM: 8,
+          controlHeight: 44,
+          controlHeightSM: 36,
+          fontSize: 14,
+          fontSizeHeading1: 28,
           fontFamily:
-            "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            "'Anthropic Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif",
+        },
+        components: {
+          Button: {
+            borderRadius: 10,
+            controlHeight: 44,
+            fontWeight: 500,
+            primaryShadow: "none",
+          },
+          Input: {
+            borderRadius: 10,
+            controlHeight: 44,
+          },
+          Tabs: {
+            horizontalItemPadding: "10px 0",
+            titleFontSize: 14,
+          },
         },
       }}
     >
