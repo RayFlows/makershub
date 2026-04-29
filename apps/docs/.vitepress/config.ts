@@ -14,6 +14,7 @@ export default defineConfig({
         { text: "第一阶段路线图", link: "/rebuild/phase-1-roadmap" },
         { text: "仓库与版本管理", link: "/rebuild/repository-versioning" },
         { text: "环境与发布周期", link: "/rebuild/environment-release-ops" },
+        { text: "后端代码注释规范", link: "/rebuild/backend-code-style" },
         { text: "数据库设计草案", link: "/rebuild/database-design" },
         { text: "API 契约草案", link: "/rebuild/api-contract" },
         { text: "业务域划分", link: "/rebuild/domain-division" },

@@ -1,8 +1,17 @@
-"""create identity and position tables
+# migrations/versions/20260429_0001_create_identity_tables.py
+"""
+创建身份与职务基础表
 
 Revision ID: 20260429_0001
 Revises:
 Create Date: 2026-04-29
+
+本迁移建立第一阶段身份底座:
+1. users: 内部用户主体；
+2. local_accounts: 邮箱密码登录凭证；
+3. wechat_accounts: 微信登录凭证；
+4. email_verification_codes: 邮箱验证码；
+5. positions / user_positions: 职务定义和用户职务关系。
 """
 
 from __future__ import annotations
@@ -17,6 +26,8 @@ depends_on = None
 
 
 def timestamp_columns() -> list[sa.Column]:
+    """生成迁移中重复使用的 created_at/updated_at 字段。"""
+
     return [
         sa.Column(
             "created_at",
@@ -34,6 +45,9 @@ def timestamp_columns() -> list[sa.Column]:
 
 
 def upgrade() -> None:
+    """执行升级迁移。"""
+
+    # --- 用户主体表 ---
     op.create_table(
         "users",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
@@ -48,6 +62,7 @@ def upgrade() -> None:
     )
     op.create_index("ix_users_status", "users", ["status"])
 
+    # --- 职务定义表 ---
     op.create_table(
         "positions",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
@@ -62,6 +77,7 @@ def upgrade() -> None:
     )
     op.create_index("ix_positions_status", "positions", ["status"])
 
+    # 首批职务种子数据。998/999 是系统管理身份，不是日常业务审批角色。
     positions = sa.table(
         "positions",
         sa.column("code", sa.String()),
@@ -125,6 +141,7 @@ def upgrade() -> None:
         ],
     )
 
+    # --- 本地账号表 ---
     op.create_table(
         "local_accounts",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
@@ -143,6 +160,7 @@ def upgrade() -> None:
     op.create_index("ix_local_accounts_status", "local_accounts", ["status"])
     op.create_index("ix_local_accounts_email_status", "local_accounts", ["email", "status"])
 
+    # --- 微信账号表 ---
     op.create_table(
         "wechat_accounts",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
@@ -162,6 +180,7 @@ def upgrade() -> None:
     op.create_index("ix_wechat_accounts_status", "wechat_accounts", ["status"])
     op.create_index("ix_wechat_accounts_openid_status", "wechat_accounts", ["openid", "status"])
 
+    # --- 邮箱验证码表 ---
     op.create_table(
         "email_verification_codes",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
@@ -186,6 +205,7 @@ def upgrade() -> None:
     op.create_index("ix_email_verification_codes_purpose", "email_verification_codes", ["purpose"])
     op.create_index("ix_email_verification_codes_user_id", "email_verification_codes", ["user_id"])
 
+    # --- 用户职务关系表 ---
     op.create_table(
         "user_positions",
         sa.Column("id", sa.BigInteger(), autoincrement=True, nullable=False),
@@ -221,6 +241,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """执行回滚迁移。"""
+
+    # 回滚顺序必须先删除依赖表，再删除被依赖表。
     op.drop_index("ix_user_positions_user_id_revoked_at", table_name="user_positions")
     op.drop_index("ix_user_positions_position_id_revoked_at", table_name="user_positions")
     op.drop_table("user_positions")
