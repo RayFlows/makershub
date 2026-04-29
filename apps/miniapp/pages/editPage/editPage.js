@@ -16,6 +16,7 @@ Page({
       college: "",
       grade: "",
       motto: "",
+      email: "",
     },
     tempAvatar: "",
     isNameFocused: false,
@@ -89,6 +90,10 @@ Page({
     // 输出从me页面传送来的数据
     console.log('加载的用户信息:', JSON.stringify(this.data.userInfo, null, 2));
   },
+
+  onShow() {
+    this.loadEmailFromCache();
+  },
   
   loadIcons() {
     const resources = app.globalData.publicResources;
@@ -126,6 +131,7 @@ Page({
           motto: cachedProfile.motto || this.data.userInfo.motto,
           score: cachedProfile.score || this.data.userInfo.score,
           role: cachedProfile.role || this.data.userInfo.role,
+          email: cachedProfile.email || this.data.userInfo.email,
         },
         isAssociationMember: cachedProfile.role > 0,
       });
@@ -168,6 +174,17 @@ Page({
       console.error('[EditPage] 缓存更新失败:', error);
       return false;
     }
+  },
+
+  /**
+   * 从缓存同步邮箱绑定状态
+   */
+  loadEmailFromCache() {
+    const cachedProfile = getUserProfile() || {};
+
+    this.setData({
+      'userInfo.email': cachedProfile.email || "",
+    });
   },
 
   // 初始化年级选项范围
@@ -332,6 +349,16 @@ Page({
       { 'userInfo.motto': e.detail.value ,
        isMottoChanged: true }
     );
+  },
+
+  /**
+   * 跳转到邮箱绑定页面
+   */
+  goToEmailBindPage() {
+    console.log('[EditPage] 跳转到邮箱绑定页面');
+    wx.navigateTo({
+      url: '/pages/email_bind/email_bind'
+    });
   },
 
   // 修改头像选择函数，只存储本地临时路径，暂不上传

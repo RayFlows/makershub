@@ -48,6 +48,16 @@
       <text wx:if="{{!isPhoneValid}}" class="error-text">{{phoneErrorMsg}}</text>
     </view>
 
+    <!-- 邮箱 -->
+    <view class="info-section">
+      <text class="label">邮箱</text>
+      <!-- 账号邮箱绑定入口 -->
+      <view class="input email-input" bindtap="goToEmailBindPage">
+        <text class="email-text">{{userInfo.email || '点击绑定邮箱'}}</text>
+        <text class="email-status">{{userInfo.email ? '已绑定' : '去绑定'}}</text>
+      </view>
+    </view>
+
     <!-- QQ号 -->
     <view class="info-section">
       <text class="label">QQ号</text>
