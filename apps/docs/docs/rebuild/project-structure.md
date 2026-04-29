@@ -28,6 +28,9 @@ makershub/
     mysql/                      # MySQL 初始化、备份、恢复相关
     minio/                      # MinIO 初始化桶、策略等
 
+  .github/
+    workflows/                  # GitHub Actions CI/CD 配置
+
   scripts/                      # 开发、初始化、运维脚本
   README.md                     # 项目总说明
   pnpm-workspace.yaml           # 前端工作区配置
@@ -45,15 +48,17 @@ apps/api/
   app/
     core/                       # 后端核心能力
       config/                   # 配置读取、环境变量、运行模式
-      database/                 # 数据库连接、事务、会话管理
+      database/                 # SQLAlchemy 异步连接、事务、会话管理
+      errors/                   # 应用异常和统一错误处理
       security/                 # 密码、令牌、签名、安全工具
       permissions/              # 权限点注册、权限检查、作用域规则
       logging/                  # 日志配置和日志上下文
 
     shared/                     # 后端通用工具
       schemas/                  # 公共请求/响应结构
-      pagination/               # 分页参数和分页响应
-      responses/                # 统一响应格式
+      pagination.py             # 分页参数和分页响应
+      responses.py              # 统一响应格式
+      request_context.py        # 请求 ID 和请求上下文
       ids/                      # 业务编号、雪花 ID 或短 ID 生成
       time/                     # 时间处理工具
 
@@ -79,6 +84,8 @@ apps/api/
         v1/                     # 正式 V1 API 路由
 
   migrations/                   # 数据库迁移脚本
+    env.py                      # Alembic 迁移环境配置
+    versions/                   # Alembic 迁移版本
   tests/                        # 后端测试
 ```
 
@@ -191,15 +198,13 @@ modules/borrowing/
 
 ## 第一阶段建设顺序
 
-当前单仓库空骨架已经创建完成。后续建设顺序如下：
+当前单仓库骨架、Docker 开发环境、GitHub CI 基线和后端基础设施已经创建完成。后续建设顺序如下：
 
-1. 补齐数据库设计文档和 API 契约文档。
-2. 在 `apps/api` 中实现后端最小可运行骨架。
-3. 在 `apps/api` 中优先实现身份、组织、权限、积分账本基础。
-4. 在 `apps/web` 中跑通登录、资料、借用、项目、积分流水。
-5. 在 `apps/admin` 中按业务域逐步补管理和审核能力。
-6. 持续维护 `apps/docs`，把开发文档和运维文档纳入版本管理。
-7. 等网页端和 API 契约稳定后，再接入 `apps/miniapp`。
+1. 在 `apps/api` 中优先实现身份、组织、权限、积分账本基础。
+2. 在 `apps/web` 中跑通登录、资料、借用、项目、积分流水。
+3. 在 `apps/admin` 中按业务域逐步补管理和审核能力。
+4. 持续维护 `apps/docs`，把开发文档和运维文档纳入版本管理。
+5. 等网页端和 API 契约稳定后，再接入 `apps/miniapp`。
 
 ## 第一阶段暂不深入
 

@@ -13,9 +13,11 @@ class Settings(BaseSettings):
         "mysql+aiomysql://makershub:makershub@mysql:3306/makershub_dev",
         validation_alias="DATABASE_URL",
     )
+    database_echo: bool = Field(False, validation_alias="DATABASE_ECHO")
     minio_endpoint: str = Field("minio:9000", validation_alias="MINIO_ENDPOINT")
     minio_access_key: str = Field("makershub", validation_alias="MINIO_ACCESS_KEY")
     minio_secret_key: str = Field("makershub_minio", validation_alias="MINIO_SECRET_KEY")
+    minio_secure: bool = Field(False, validation_alias="MINIO_SECURE")
     minio_bucket_name: str = Field("makershub-local", validation_alias="MINIO_BUCKET_NAME")
     minio_avatar_bucket: str = Field(
         "makershub-avatars-local",

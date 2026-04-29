@@ -18,6 +18,8 @@
 - 创建 FastAPI 最小应用入口和健康检查接口；
 - 创建成员网页端和后台管理端最小 React/Vite 入口；
 - 创建 Docker 本地开发编排，覆盖 MySQL、MinIO、后端、成员网页端、后台管理端和文档站；
+- 创建 GitHub Actions CI 基线，覆盖前端构建、文档构建、后端 lint/test 和 Docker Compose 配置检查；
+- 创建后端数据库连接、Alembic 迁移、统一响应、统一错误处理、请求 ID、分页结构和 V1 路由注册入口；
 - 创建环境、部署与发布周期文档，明确本地开发、预发布、生产、灰度、回滚和备份的基本原则；
 - 确认后端采用 FastAPI、SQLAlchemy、MySQL、MinIO；
 - 确认后端依赖管理采用 `uv + pyproject.toml`；
@@ -64,6 +66,7 @@
 - `environment-release-ops.md`；
 - `repository-versioning.md`；
 - Docker 本地环境规划；
+- GitHub Actions CI 基线；
 - 文档站导航。
 
 验收标准：
@@ -134,7 +137,12 @@
 
 - 已完成 FastAPI 入口、`/health`、`/api/v1/health`；
 - 已完成 Dockerfile 和 `infra/docker/compose.dev.yml`；
-- 模块注册、数据库连接、权限点注册、响应封装和 Alembic 初始化仍待实现。
+- 已完成 SQLAlchemy 异步数据库连接、会话工厂和数据库健康检查；
+- 已完成 MinIO 健康检查；
+- 已完成统一成功响应、统一错误响应、请求 ID 和基础分页结构；
+- 已完成 V1 路由注册入口，后续业务模块可以按业务域挂载；
+- 已完成 Alembic 初始化配置和版本目录；
+- 权限点注册机制仍待实现。
 
 ### 4. 核心业务后端
 

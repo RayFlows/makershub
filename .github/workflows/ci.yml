@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  checks:
+    name: Workspace checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.9 --activate
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend and docs
+        run: pnpm -r build
+
+      - name: Lint frontend workspaces
+        run: pnpm -r lint
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install backend dependencies
+        run: uv sync --locked --project apps/api --extra dev
+
+      - name: Lint backend
+        run: uv run --project apps/api ruff check apps/api/app apps/api/tests apps/api/migrations
+
+      - name: Run backend tests
+        run: uv run --project apps/api pytest apps/api/tests
+
+      - name: Validate Docker Compose
+        run: docker compose -f infra/docker/compose.dev.yml config
+
+      - name: Lint Docker Compose YAML
+        run: npx --yes yaml-lint infra/docker/compose.dev.yml

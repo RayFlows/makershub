@@ -101,6 +101,27 @@ RayFlows/makershub
 
 第一阶段可以先直接在本地提交到 `main`，但推送到 GitHub 后应逐步过渡到分支和 Pull Request。只要进入预发布或生产环境，`main` 就必须保持可追踪、可回滚。
 
+## CI 基线
+
+主仓库已经包含 GitHub Actions 配置：
+
+```text
+.github/workflows/ci.yml
+```
+
+当前 CI 在 push 到 `main` 和创建 Pull Request 时执行：
+
+- 安装前端依赖；
+- 构建成员网页端、后台管理端、文档站和共享包；
+- 执行前端 workspace lint；
+- 安装后端依赖；
+- 执行后端 ruff 检查；
+- 执行后端 pytest；
+- 校验 Docker Compose 配置；
+- 校验 Docker Compose YAML。
+
+后续新增数据库迁移、业务模块、前端页面和部署脚本时，应把对应检查同步加入 CI。
+
 ## 提交规则
 
 提交信息建议使用简化的 Conventional Commits：
