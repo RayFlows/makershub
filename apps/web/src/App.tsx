@@ -18,10 +18,13 @@ import {
 } from "antd";
 import type { TabsProps } from "antd";
 import {
+  Activity,
+  ArrowRight,
   CalendarClock,
   ClipboardList,
   Coins,
   FolderKanban,
+  KeyRound,
   LogOut,
   Mail,
   PackageSearch,
@@ -215,15 +218,44 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (auth: AuthTokenData
 
   return (
     <main className="auth-page">
-      <section className="auth-panel">
-        <div className="auth-heading">
-          <div className="auth-mark">MH</div>
-          <div>
-            <Typography.Title level={1}>MakersHub 成员端</Typography.Title>
-            <Typography.Text type="secondary">账号登录</Typography.Text>
+      <section className="auth-card">
+        <aside className="auth-context" aria-label="MakersHub">
+          <div className="brand-lockup">
+            <div className="auth-mark">MH</div>
+            <div>
+              <strong>MakersHub</strong>
+              <span>成员工作台</span>
+            </div>
           </div>
-        </div>
-        <Tabs defaultActiveKey="password" items={tabItems} />
+          <div className="context-stack">
+            <div className="context-row">
+              <span>身份</span>
+              <strong>统一账号</strong>
+            </div>
+            <div className="context-row">
+              <span>会话</span>
+              <strong>双令牌</strong>
+            </div>
+            <div className="context-row">
+              <span>环境</span>
+              <strong>local</strong>
+            </div>
+          </div>
+          <div className="context-footer">
+            <ShieldCheck size={18} />
+            <span>已接入邮箱登录链路</span>
+          </div>
+        </aside>
+        <section className="auth-panel">
+          <div className="auth-heading compact">
+            <div className="auth-mark small">MH</div>
+            <div>
+              <Typography.Title level={1}>账号登录</Typography.Title>
+              <Typography.Text type="secondary">MakersHub 成员端</Typography.Text>
+            </div>
+          </div>
+          <Tabs defaultActiveKey="password" items={tabItems} />
+        </section>
       </section>
     </main>
   );
@@ -267,7 +299,7 @@ function PasswordLoginForm({
       <Form.Item label="密码" name="password" rules={[{ required: true, message: "请输入密码" }]}>
         <Input.Password autoComplete="current-password" placeholder="请输入密码" />
       </Form.Item>
-      <Button block type="primary" htmlType="submit" loading={submitting}>
+      <Button block type="primary" htmlType="submit" loading={submitting} icon={<ArrowRight size={16} />}>
         登录
       </Button>
     </Form>
@@ -350,12 +382,12 @@ function FirstLoginForm({
           >
             <Input inputMode="numeric" maxLength={6} placeholder="6位验证码" />
           </Form.Item>
-          <Button loading={sending} onClick={handleSendCode}>
+          <Button loading={sending} onClick={handleSendCode} icon={<Mail size={15} />}>
             发送
           </Button>
         </Space.Compact>
       </Form.Item>
-      <Button block type="primary" htmlType="submit" loading={submitting}>
+      <Button block type="primary" htmlType="submit" loading={submitting} icon={<ArrowRight size={16} />}>
         继续
       </Button>
     </Form>
@@ -388,48 +420,50 @@ function SetPasswordScreen({
 
   return (
     <main className="auth-page">
-      <section className="auth-panel narrow">
-        <div className="auth-heading">
-          <div className="auth-mark">MH</div>
-          <div>
-            <Typography.Title level={1}>设置密码</Typography.Title>
-            <Typography.Text type="secondary">首次登录</Typography.Text>
+      <section className="auth-card single">
+        <section className="auth-panel">
+          <div className="auth-heading compact">
+            <div className="auth-mark small">MH</div>
+            <div>
+              <Typography.Title level={1}>设置密码</Typography.Title>
+              <Typography.Text type="secondary">首次登录</Typography.Text>
+            </div>
           </div>
-        </div>
-        <Form form={form} layout="vertical" requiredMark={false} onFinish={handleSubmit}>
-          {error && <Alert className="form-alert" type="error" showIcon message={error} />}
-          <Form.Item
-            label="新密码"
-            name="password"
-            rules={[
-              { required: true, message: "请输入新密码" },
-              { min: 8, message: "密码至少8位" },
-            ]}
-          >
-            <Input.Password autoComplete="new-password" placeholder="至少8位" />
-          </Form.Item>
-          <Form.Item
-            label="确认密码"
-            name="confirm_password"
-            dependencies={["password"]}
-            rules={[
-              { required: true, message: "请再次输入密码" },
-              ({ getFieldValue }) => ({
-                validator(_, value) {
-                  if (!value || getFieldValue("password") === value) {
-                    return Promise.resolve();
-                  }
-                  return Promise.reject(new Error("两次密码不一致"));
-                },
-              }),
-            ]}
-          >
-            <Input.Password autoComplete="new-password" placeholder="再次输入" />
-          </Form.Item>
-          <Button block type="primary" htmlType="submit" loading={submitting}>
-            保存密码
-          </Button>
-        </Form>
+          <Form form={form} layout="vertical" requiredMark={false} onFinish={handleSubmit}>
+            {error && <Alert className="form-alert" type="error" showIcon message={error} />}
+            <Form.Item
+              label="新密码"
+              name="password"
+              rules={[
+                { required: true, message: "请输入新密码" },
+                { min: 8, message: "密码至少8位" },
+              ]}
+            >
+              <Input.Password autoComplete="new-password" placeholder="至少8位" />
+            </Form.Item>
+            <Form.Item
+              label="确认密码"
+              name="confirm_password"
+              dependencies={["password"]}
+              rules={[
+                { required: true, message: "请再次输入密码" },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue("password") === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error("两次密码不一致"));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password autoComplete="new-password" placeholder="再次输入" />
+            </Form.Item>
+            <Button block type="primary" htmlType="submit" loading={submitting} icon={<KeyRound size={16} />}>
+              保存密码
+            </Button>
+          </Form>
+        </section>
       </section>
     </main>
   );
@@ -446,16 +480,22 @@ function MemberShell({
 }) {
   return (
     <Layout className="app-shell">
-      <Layout.Sider width={232} className="side-nav">
-        <div className="brand">MakersHub</div>
+      <Layout.Sider width={252} className="side-nav">
+        <div className="brand">
+          <div className="auth-mark small">MH</div>
+          <div>
+            <strong>MakersHub</strong>
+            <span>成员端</span>
+          </div>
+        </div>
         <Menu mode="inline" defaultSelectedKeys={["profile"]} items={menuItems} />
       </Layout.Sider>
       <Layout>
         <Layout.Header className="top-bar">
-          <Space size={12}>
+          <div className="top-title">
             <CalendarClock size={18} />
-            <span>成员网页端</span>
-          </Space>
+            <span>成员工作台</span>
+          </div>
           <Space size={12}>
             <Tag color={channel === "password" ? "green" : "cyan"}>{channel || "active"}</Tag>
             <Button icon={<LogOut size={16} />} onClick={onLogout}>
@@ -464,13 +504,19 @@ function MemberShell({
           </Space>
         </Layout.Header>
         <Layout.Content className="content">
-          <section className="profile-header">
-            <Avatar size={64} src={user.avatar_url || undefined}>
-              {user.display_name.slice(0, 1)}
-            </Avatar>
-            <div>
-              <Typography.Title level={1}>{user.display_name}</Typography.Title>
-              <Typography.Text type="secondary">{user.email || "未绑定邮箱"}</Typography.Text>
+          <section className="profile-hero">
+            <div className="profile-header">
+              <Avatar size={72} src={user.avatar_url || undefined} className="profile-avatar">
+                {user.display_name.slice(0, 1)}
+              </Avatar>
+              <div>
+                <Typography.Title level={1}>{user.display_name}</Typography.Title>
+                <Typography.Text type="secondary">{user.email || "未绑定邮箱"}</Typography.Text>
+              </div>
+            </div>
+            <div className="hero-status">
+              <Activity size={18} />
+              <span>{user.status}</span>
             </div>
           </section>
 
