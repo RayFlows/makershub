@@ -184,9 +184,9 @@ function App() {
         token: {
           colorBgBase: "#FAF9F5",
           colorBgContainer: "#FFFFFF",
-          colorText: "#141413",
-          colorTextSecondary: "#3D3D3A",
-          colorTextTertiary: "#73726C",
+          colorText: "#37352f",
+          colorTextSecondary: "#6b6a68",
+          colorTextTertiary: "#9b9a97",
           colorBorder: "rgba(31, 30, 29, 0.15)",
           colorBorderSecondary: "rgba(31, 30, 29, 0.1)",
           colorPrimary: "#ae5630",
@@ -194,25 +194,25 @@ function App() {
           colorSuccess: "#437426",
           colorWarning: "#b8843a",
           colorError: "#a73d39",
-          borderRadius: 10,
-          borderRadiusLG: 16,
-          borderRadiusSM: 8,
+          borderRadius: 8,
+          borderRadiusLG: 12,
+          borderRadiusSM: 6,
           controlHeight: 44,
           controlHeightSM: 36,
           fontSize: 14,
-          fontSizeHeading1: 28,
+          fontSizeHeading1: 26,
           fontFamily:
-            "'Anthropic Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'Microsoft YaHei', sans-serif",
+            "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif",
         },
         components: {
           Button: {
-            borderRadius: 10,
+            borderRadius: 8,
             controlHeight: 44,
             fontWeight: 500,
             primaryShadow: "none",
           },
           Input: {
-            borderRadius: 10,
+            borderRadius: 8,
             controlHeight: 44,
           },
           Tabs: {
@@ -236,6 +236,7 @@ function LoadingScreen() {
 }
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: (auth: AuthTokenData, required?: boolean) => void }) {
+  const [activeTab, setActiveTab] = useState("password");
   const tabItems: TabsProps["items"] = [
     {
       key: "password",
@@ -257,40 +258,59 @@ function AuthScreen({ onAuthenticated }: { onAuthenticated: (auth: AuthTokenData
             <div className="auth-mark">MH</div>
             <div>
               <strong>MakersHub</strong>
-              <span>成员工作台</span>
+              <span>成员端</span>
             </div>
           </div>
-          <div className="context-stack">
-            <div className="context-row">
-              <span>身份</span>
-              <strong>统一账号</strong>
-            </div>
-            <div className="context-row">
-              <span>会话</span>
-              <strong>双令牌</strong>
-            </div>
-            <div className="context-row">
-              <span>环境</span>
-              <strong>local</strong>
-            </div>
-          </div>
-          <div className="context-footer">
-            <ShieldCheck size={18} />
-            <span>已接入邮箱登录链路</span>
-          </div>
+          <nav className="auth-nav" aria-label="登录方式">
+            <span className="auth-nav-label">账号</span>
+            <button
+              className={activeTab === "password" ? "auth-nav-item is-active" : "auth-nav-item"}
+              type="button"
+              onClick={() => setActiveTab("password")}
+            >
+              <KeyRound size={16} />
+              <span>密码登录</span>
+            </button>
+            <button
+              className={activeTab === "first-login" ? "auth-nav-item is-active" : "auth-nav-item"}
+              type="button"
+              onClick={() => setActiveTab("first-login")}
+            >
+              <Mail size={16} />
+              <span>首次登录</span>
+            </button>
+          </nav>
         </aside>
         <section className="auth-panel">
-          <div className="auth-heading compact">
-            <div className="auth-mark small">MH</div>
-            <div>
-              <Typography.Title level={1}>账号登录</Typography.Title>
-              <Typography.Text type="secondary">MakersHub 成员端</Typography.Text>
+          <div className="auth-form-shell">
+            <div className="auth-heading compact">
+              <Typography.Title level={1}>
+                {activeTab === "password" ? "登录 MakersHub" : "首次登录"}
+              </Typography.Title>
+              <Typography.Text type="secondary">
+                {activeTab === "password" ? "使用已绑定邮箱继续" : "输入绑定邮箱和验证码"}
+              </Typography.Text>
             </div>
+            <Tabs
+              activeKey={activeTab}
+              className="auth-tabs"
+              items={tabItems}
+              tabBarStyle={{ display: "none" }}
+              onChange={setActiveTab}
+            />
           </div>
-          <Tabs defaultActiveKey="password" items={tabItems} />
         </section>
       </section>
     </main>
+  );
+}
+
+function AuthPanelTitle({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="auth-heading compact">
+      <Typography.Title level={1}>{title}</Typography.Title>
+      <Typography.Text type="secondary">{subtitle}</Typography.Text>
+    </div>
   );
 }
 
@@ -455,47 +475,43 @@ function SetPasswordScreen({
     <main className="auth-page">
       <section className="auth-card single">
         <section className="auth-panel">
-          <div className="auth-heading compact">
-            <div className="auth-mark small">MH</div>
-            <div>
-              <Typography.Title level={1}>设置密码</Typography.Title>
-              <Typography.Text type="secondary">首次登录</Typography.Text>
-            </div>
+          <div className="auth-form-shell">
+            <AuthPanelTitle title="设置密码" subtitle="首次登录" />
+            <Form form={form} layout="vertical" requiredMark={false} onFinish={handleSubmit}>
+              {error && <Alert className="form-alert" type="error" showIcon message={error} />}
+              <Form.Item
+                label="新密码"
+                name="password"
+                rules={[
+                  { required: true, message: "请输入新密码" },
+                  { min: 8, message: "密码至少8位" },
+                ]}
+              >
+                <Input.Password autoComplete="new-password" placeholder="至少8位" />
+              </Form.Item>
+              <Form.Item
+                label="确认密码"
+                name="confirm_password"
+                dependencies={["password"]}
+                rules={[
+                  { required: true, message: "请再次输入密码" },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (!value || getFieldValue("password") === value) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(new Error("两次密码不一致"));
+                    },
+                  }),
+                ]}
+              >
+                <Input.Password autoComplete="new-password" placeholder="再次输入" />
+              </Form.Item>
+              <Button block type="primary" htmlType="submit" loading={submitting} icon={<KeyRound size={16} />}>
+                保存密码
+              </Button>
+            </Form>
           </div>
-          <Form form={form} layout="vertical" requiredMark={false} onFinish={handleSubmit}>
-            {error && <Alert className="form-alert" type="error" showIcon message={error} />}
-            <Form.Item
-              label="新密码"
-              name="password"
-              rules={[
-                { required: true, message: "请输入新密码" },
-                { min: 8, message: "密码至少8位" },
-              ]}
-            >
-              <Input.Password autoComplete="new-password" placeholder="至少8位" />
-            </Form.Item>
-            <Form.Item
-              label="确认密码"
-              name="confirm_password"
-              dependencies={["password"]}
-              rules={[
-                { required: true, message: "请再次输入密码" },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue("password") === value) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject(new Error("两次密码不一致"));
-                  },
-                }),
-              ]}
-            >
-              <Input.Password autoComplete="new-password" placeholder="再次输入" />
-            </Form.Item>
-            <Button block type="primary" htmlType="submit" loading={submitting} icon={<KeyRound size={16} />}>
-              保存密码
-            </Button>
-          </Form>
         </section>
       </section>
     </main>
