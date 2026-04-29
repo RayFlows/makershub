@@ -6,7 +6,8 @@ const REFRESH_EXPIRES_AT_KEY = 'refresh_token_expires_at';
 const USER_INFO_KEY = 'userInfo';
 const USER_PROFILE_KEY = 'userProfile'; // 新增:存储完整用户信息的键
 const LAST_CLEAN_TIME_KEY = 'last_clean_time';
-var config = wx.getStorageSync('config');
+const defaultConfig = require('../../config.js');
+var config = defaultConfig;
 const app = getApp();
 
 /**
@@ -20,8 +21,12 @@ function getAuthToken() {
  * 获取新版认证接口配置
  */
 function getAuthConfig() {
-  const currentConfig = wx.getStorageSync('config') || config || {};
-  return currentConfig.auth || {};
+  const currentConfig = wx.getStorageSync('config') || {};
+  if (!currentConfig.auth && config.auth) {
+    wx.setStorageSync('config', config);
+    return config.auth;
+  }
+  return currentConfig.auth || config.auth || {};
 }
 
 /**
@@ -358,11 +363,14 @@ const handleUserAuth = (confirmed, resolve, reject) => {
       
       console.log('[Auth] 获取 code 成功:', res.code);
       
-      // 确保使用最新的 config
-      const currentConfig = wx.getStorageSync('config');
+      // 确保优先使用新版认证接口，避免旧 storage 中的 config 把请求带回旧后端。
+      const currentConfig = wx.getStorageSync('config') || config;
+      const authConfig = getAuthConfig();
+      const loginUrl = authConfig.wechatLogin || currentConfig.users.login;
+      console.log('[Auth] 登录接口:', loginUrl);
       
       wx.request({
-        url: currentConfig.auth && currentConfig.auth.wechatLogin ? currentConfig.auth.wechatLogin : currentConfig.users.login,
+        url: loginUrl,
         method: 'POST',
         data: { code: res.code },
         header: {
