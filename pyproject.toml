@@ -1,7 +1,7 @@
 [project]
-name = "makershub-v2-workspace"
+name = "makershub-workspace"
 version = "0.1.0"
-description = "MakersHub V2 workspace"
+description = "MakersHub workspace"
 requires-python = ">=3.10"
 dependencies = []
 

@@ -48,7 +48,7 @@ function App() {
               <CalendarClock size={18} />
               <span>成员网页端验证环境</span>
             </Space>
-            <Tag color="cyan">V2 骨架</Tag>
+            <Tag color="cyan">重构骨架</Tag>
           </Layout.Header>
           <Layout.Content className="content">
             <section className="intro">

@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
 
     database_url: str = Field(
-        "mysql+aiomysql://makershub:makershub@mysql:3306/makershub_v2",
+        "mysql+aiomysql://makershub:makershub@mysql:3306/makershub_dev",
         validation_alias="DATABASE_URL",
     )
     minio_endpoint: str = Field("minio:9000", validation_alias="MINIO_ENDPOINT")

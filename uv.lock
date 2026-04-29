@@ -9,7 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "makershub-api",
-    "makershub-v2-workspace",
+    "makershub-workspace",
 ]
 
 [[package]]
@@ -622,7 +622,7 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
-name = "makershub-v2-workspace"
+name = "makershub-workspace"
 version = "0.1.0"
 source = { virtual = "." }
 

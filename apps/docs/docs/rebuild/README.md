@@ -9,8 +9,9 @@
 ## 文档列表
 
 - [业务域划分](./domain-division.md)：说明新系统的业务域边界、部门与模块的关系、未来扩展位置。
-- [项目结构规划](./project-structure.md)：说明 `makershub-v2` 单仓库、多应用、业务域后端和前端共享包的目录安排。
+- [项目结构规划](./project-structure.md)：说明 `makershub` 单仓库、多应用、业务域后端和前端共享包的目录安排。
 - [第一阶段实施路线图](./phase-1-roadmap.md)：说明第一阶段的交付范围、实施顺序和验收标准。
+- [仓库与版本管理](./repository-versioning.md)：说明 GitHub 主仓、旧仓迁移关系、分支、提交、版本号、镜像标签和发布记录约定。
 - [环境、部署与发布周期](./environment-release-ops.md)：说明开发、预发布、生产、灰度、回滚、备份和运维检查要求。
 - [数据库设计草案](./database-design.md)：说明第一阶段核心表、关系和数据库设计约定。
 - [API 契约草案](./api-contract.md)：说明统一响应、认证、分页、上传和第一阶段核心接口。

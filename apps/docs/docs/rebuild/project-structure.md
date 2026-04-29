@@ -1,21 +1,21 @@
-# MakersHub V2 项目结构规划
+# MakersHub 项目结构规划
 
 ## 目标
 
-本文档记录 `makershub-v2` 的目标目录结构。它用于指导后续创建新仓库骨架，避免继续沿用旧项目中按 `models`、`routes`、`services` 三层平铺的结构。
+本文档记录 `makershub` 的目标目录结构。它用于指导后续创建新仓库骨架，避免继续沿用旧项目中按 `models`、`routes`、`services` 三层平铺的结构。
 
-V2 采用单仓库多应用结构：后端、成员网页端、后台管理端、文档站和小程序预留目录放在同一个仓库中，前端共享包统一放在 `packages/` 下。
+新系统采用单仓库多应用结构：后端、成员网页端、后台管理端、文档站和小程序源码放在同一个仓库中，前端共享包统一放在 `packages/` 下。
 
 ## 顶层结构
 
 ```text
-makershub-v2/
+makershub/
   apps/                         # 所有可以独立运行的应用
     api/                        # FastAPI 后端服务
     web/                        # 成员网页端，第一阶段优先实现
     admin/                      # 新后台管理系统，直接重写，不迁移旧后台 UI
     docs/                       # VitePress 文档站
-    miniapp/                    # 小程序源码预留目录，后续接入
+    miniapp/                    # 小程序源码，从原 MakersHub_Front-end 导入
 
   packages/                     # 多个前端应用共享的代码
     api-client/                 # 共享 API 客户端和接口类型
@@ -159,11 +159,11 @@ modules/borrowing/
 
 ### `apps/miniapp`
 
-`apps/miniapp` 是小程序源码预留目录。
+`apps/miniapp` 是小程序源码目录，已经从原 `RayFlows/MakersHub_Front-end` 导入。
 
-微信开发者工具可以直接打开 `apps/miniapp` 子目录，不需要打开整个 `makershub-v2` 根目录。因此小程序放在单仓库中不会天然增加本地开发难度。
+微信开发者工具可以直接打开 `apps/miniapp` 子目录，不需要打开整个 `makershub` 根目录。因此小程序放在单仓库中不会天然增加本地开发难度。
 
-第一阶段先用网页端验证业务逻辑。小程序后续接入时，重点改造 API 层和数据适配层，页面能保留的优先保留。
+第一阶段先用网页端验证业务逻辑。小程序后续接入时，重点改造 API 层和数据适配层，页面能保留的优先保留。原 `mini_makers` 仓库不作为迁移来源。
 
 ## 共享包说明
 

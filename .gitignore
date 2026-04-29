@@ -24,6 +24,10 @@ logs/
 data/
 *.log
 
+# WeChat Mini Program local/generated files
+apps/miniapp/project.private.config.json
+apps/miniapp/miniprogram_npm/
+apps/miniapp/.idea/
 
 # VitePress generated files
 apps/docs/docs/.vitepress/

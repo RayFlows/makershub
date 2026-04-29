@@ -1,4 +1,4 @@
-# MakersHub V2 第一阶段实施路线图
+# MakersHub 第一阶段实施路线图
 
 ## 目标
 
@@ -10,9 +10,10 @@
 
 已完成：
 
-- 创建 `makershub-v2` 单仓库骨架；
+- 创建 `makershub` 单仓库骨架；
 - 创建 `apps/api`、`apps/web`、`apps/admin`、`apps/docs`、`apps/miniapp`；
 - 创建 `packages/api-client`、`packages/ui`、`packages/config`；
+- 已将原 `MakersHub_Front-end` 小程序源码导入 `apps/miniapp`；
 - 迁移重构文档到 `apps/docs/docs/rebuild`；
 - 创建 FastAPI 最小应用入口和健康检查接口；
 - 创建成员网页端和后台管理端最小 React/Vite 入口；
@@ -22,7 +23,7 @@
 - 确认后端依赖管理采用 `uv + pyproject.toml`；
 - 确认前端采用 `pnpm workspace`、React、Vite、TypeScript 和 Ant Design Pro 风格；
 - 确认 Docker 作为本地开发、联调和后续部署的基础设施入口；
-- 确认成员网页端优先，后台管理端重写，小程序后续接入。
+- 确认成员网页端优先，后台管理端重写，小程序基于旧源码后续适配新 API。
 
 ## 第一阶段范围
 
@@ -61,13 +62,14 @@
 - `workflows.md`；
 - `phase-1-roadmap.md`；
 - `environment-release-ops.md`；
+- `repository-versioning.md`；
 - Docker 本地环境规划；
 - 文档站导航。
 
 验收标准：
 
 - 所有文档默认中文；
-- 文档中的项目结构统一指向 `makershub-v2` 单仓库；
+- 文档中的项目结构统一指向 `makershub` 单仓库；
 - 不再把旧后台前端作为迁移对象；
 - Docker 相关内容进入 `infra/` 和文档，不作为后期补丁；
 - 第一阶段范围和暂缓范围清晰可查。

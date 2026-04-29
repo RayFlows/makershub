@@ -1,7 +1,7 @@
 [project]
 name = "makershub-api"
 version = "0.1.0"
-description = "MakersHub V2 FastAPI service"
+description = "MakersHub FastAPI service"
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.110.0",

@@ -1,4 +1,4 @@
-# MakersHub V2 数据库设计草案
+# MakersHub 数据库设计草案
 
 ## 目标
 
