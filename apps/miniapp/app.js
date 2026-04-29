@@ -18,6 +18,7 @@ App({
     // 将全局API的url配置保存到缓存中
     wx.setStorageSync('config', config)
     console.log('[App] 配置全局API的url成功')
+    console.log('[App] 新版认证接口', config.auth && config.auth.wechatLogin)
 
     // 应用启动时加载公共资源
     console.log('[App] 加载全局资源')
