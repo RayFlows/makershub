@@ -1,0 +1,162 @@
+name: makershub-dev
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-makershub_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-makershub_v2}
+      MYSQL_USER: ${MYSQL_USER:-makershub}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-makershub}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-makershub}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-makershub_minio}
+      MINIO_SERVER_URL: ${MINIO_PUBLIC_URL:-http://localhost:9000}
+      MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-makershub}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-makershub_minio}
+      MINIO_AVATAR_BUCKET: ${MINIO_AVATAR_BUCKET:-makershub-avatars-local}
+      MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-makershub-public-local}
+      MINIO_RESOURCE_BUCKET: ${MINIO_RESOURCE_BUCKET:-makershub-resources-local}
+      MINIO_PROJECT_BUCKET: ${MINIO_PROJECT_BUCKET:-makershub-projects-local}
+      MINIO_TEMP_BUCKET: ${MINIO_TEMP_BUCKET:-makershub-temp-local}
+    volumes:
+      - ./minio/init.sh:/usr/bin/init.sh:ro
+    entrypoint: ["/bin/sh", "/usr/bin/init.sh"]
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+    command:
+      [
+        "uv",
+        "run",
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
+    environment:
+      APP_ENV: local
+      UV_PROJECT_ENVIRONMENT: /workspace/.venv/api
+      DATABASE_URL: ${DATABASE_URL:-mysql+aiomysql://makershub:makershub@mysql:3306/makershub_v2}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-makershub}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-makershub_minio}
+      MINIO_BUCKET_NAME: ${MINIO_BUCKET_NAME:-makershub-local}
+      MINIO_AVATAR_BUCKET: ${MINIO_AVATAR_BUCKET:-makershub-avatars-local}
+      MINIO_PUBLIC_BUCKET: ${MINIO_PUBLIC_BUCKET:-makershub-public-local}
+      MINIO_RESOURCE_BUCKET: ${MINIO_RESOURCE_BUCKET:-makershub-resources-local}
+      MINIO_PROJECT_BUCKET: ${MINIO_PROJECT_BUCKET:-makershub-projects-local}
+      MINIO_TEMP_BUCKET: ${MINIO_TEMP_BUCKET:-makershub-temp-local}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../../apps/api:/workspace/apps/api
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+    command: pnpm --filter @makershub/web dev -- --host 0.0.0.0 --port 5173
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../..:/workspace
+      - node_modules:/workspace/node_modules
+      - web_node_modules:/workspace/apps/web/node_modules
+    depends_on:
+      api:
+        condition: service_healthy
+
+  admin:
+    build:
+      context: ../..
+      dockerfile: infra/docker/admin.Dockerfile
+    command: pnpm --filter @makershub/admin dev -- --host 0.0.0.0 --port 5174
+    ports:
+      - "5174:5174"
+    volumes:
+      - ../..:/workspace
+      - node_modules:/workspace/node_modules
+      - admin_node_modules:/workspace/apps/admin/node_modules
+    depends_on:
+      api:
+        condition: service_healthy
+
+  docs:
+    build:
+      context: ../..
+      dockerfile: infra/docker/docs.Dockerfile
+    command: pnpm --filter @makershub/docs exec vitepress dev docs --host 0.0.0.0 --port 5175
+    ports:
+      - "5175:5175"
+    volumes:
+      - ../..:/workspace
+      - node_modules:/workspace/node_modules
+      - docs_node_modules:/workspace/apps/docs/node_modules
+
+volumes:
+  mysql_data:
+  minio_data:
+  node_modules:
+  web_node_modules:
+  admin_node_modules:
+  docs_node_modules:

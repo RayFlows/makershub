@@ -1,0 +1,11 @@
+{
+  "name": "@makershub/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"ui build placeholder\"",
+    "lint": "echo \"ui lint placeholder\""
+  }
+}
+

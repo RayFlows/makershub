@@ -1,0 +1,11 @@
+{
+  "name": "@makershub/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"api-client build placeholder\"",
+    "lint": "echo \"api-client lint placeholder\""
+  }
+}
+

@@ -1,0 +1,19 @@
+{
+  "name": "makershub-v2",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev:web": "pnpm --filter @makershub/web dev",
+    "dev:admin": "pnpm --filter @makershub/admin dev",
+    "dev:docs": "pnpm --filter @makershub/docs dev",
+    "docker:dev": "docker compose -f infra/docker/compose.dev.yml up --build",
+    "docker:infra": "docker compose -f infra/docker/compose.dev.yml up --build mysql minio minio-init",
+    "docker:down": "docker compose -f infra/docker/compose.dev.yml down",
+    "docker:down:volumes": "docker compose -f infra/docker/compose.dev.yml down -v",
+    "docker:logs": "docker compose -f infra/docker/compose.dev.yml logs -f",
+    "docker:ps": "docker compose -f infra/docker/compose.dev.yml ps",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint"
+  }
+}
