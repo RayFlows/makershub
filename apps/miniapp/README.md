@@ -14,6 +14,21 @@
 
 微信开发者工具可以直接打开 `apps/miniapp` 子目录，不需要打开整个 monorepo。
 
+如果在 Windows 微信开发者工具里直接打开 WSL 的 `\\wsl.localhost\...` 路径，
+新增页面文件可能出现刷新延迟。更稳妥的方式是把小程序同步到 Windows 本地镜像目录：
+
+```bash
+scripts/dev/sync-miniapp-to-windows.sh
+```
+
+然后在微信开发者工具中打开：
+
+```text
+C:\Users\Ray\Documents\New project\makershub-miniapp
+```
+
+该目录只作为 DevTools 编译镜像，源码仍以 WSL 仓库 `apps/miniapp` 为准。
+
 当前只有认证入口先接入新版后端：
 
 - `auth.wechatLogin`：`/api/v1/auth/wechat/login`；
