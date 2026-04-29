@@ -24,6 +24,25 @@ class Settings(BaseSettings):
     app_env: str = Field("local", validation_alias="APP_ENV")  # local/staging/production 等环境标识
     api_prefix: str = "/api/v1"  # 第一阶段正式 API 统一前缀
 
+    # --- 令牌配置 ---
+    jwt_secret_key: str = Field(
+        "ChangeMeInProduction",
+        validation_alias="JWT_SECRET_KEY",
+    )
+    jwt_algorithm: str = Field("HS256", validation_alias="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(
+        60 * 24 * 7,
+        validation_alias="ACCESS_TOKEN_EXPIRE_MINUTES",
+    )
+
+    # --- 微信小程序登录配置 ---
+    wechat_app_id: str | None = Field(None, validation_alias="WECHAT_APP_ID")
+    wechat_app_secret: str | None = Field(None, validation_alias="WECHAT_APP_SECRET")
+    wechat_code2session_url: str = Field(
+        "https://api.weixin.qq.com/sns/jscode2session",
+        validation_alias="WECHAT_CODE2SESSION_URL",
+    )
+
     # --- 数据库配置 ---
     database_url: str = Field(
         "mysql+aiomysql://makershub:makershub@mysql:3306/makershub_dev",
@@ -69,6 +88,16 @@ class Settings(BaseSettings):
         """把逗号分隔的 CORS 配置转换成 FastAPI 需要的列表。"""
 
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def allow_dev_wechat_login(self) -> bool:
+        """是否允许使用开发态 openid 登录。
+
+        本地开发和自动化测试无法直接拿到真实微信 code，因此允许 dev_openid。
+        预发布和生产环境必须关闭，避免绕过微信 code2session。
+        """
+
+        return self.app_env in {"local", "test", "development"}
 
     model_config = SettingsConfigDict(
         env_file=".env",
