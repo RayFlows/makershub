@@ -9,7 +9,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Header, Request
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,10 +24,15 @@ from app.interfaces.http.dependencies import CurrentUser, get_current_user
 from app.interfaces.http.v1.auth.schemas import (
     BindEmailRequest,
     BindEmailResponse,
+    EmailFirstLoginRequest,
+    EmailFirstLoginResponse,
     LogoutRequest,
+    PasswordLoginRequest,
     RefreshTokenRequest,
     SendEmailCodeRequest,
     SendEmailCodeResponse,
+    SetPasswordRequest,
+    SetPasswordResponse,
     TokenResponse,
     UserSummary,
     WechatLoginRequest,
@@ -33,11 +40,14 @@ from app.interfaces.http.v1.auth.schemas import (
 from app.modules.identity.service import (
     AuthTokenPair,
     bind_email_with_code,
+    complete_first_login_with_code,
     issue_auth_token_pair,
     issue_email_verification_code,
+    login_local_account_with_password,
     login_wechat_identity,
     refresh_auth_token_pair,
     revoke_auth_token_pair,
+    set_local_account_password,
 )
 from app.shared.request_context import get_request_id
 from app.shared.responses import success_response
@@ -72,6 +82,13 @@ def build_token_response(token_pair: AuthTokenPair) -> TokenResponse:
         refresh_expires_at=token_pair.refresh_expires_at,
         user=build_user_summary(token_pair.user),
     )
+
+
+def build_first_login_response(token_pair: AuthTokenPair) -> EmailFirstLoginResponse:
+    """把首次邮箱验证码登录结果转换成 HTTP 响应模型。"""
+
+    base = build_token_response(token_pair)
+    return EmailFirstLoginResponse(**base.model_dump(), password_required=True)
 
 
 def get_client_ip(request: Request) -> str | None:
@@ -180,20 +197,25 @@ async def logout(
 async def send_email_code(
     payload: SendEmailCodeRequest,
     request: Request,
-    current: CurrentUser = Depends(get_current_user),
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     session: AsyncSession = Depends(get_session),
 ):
     """
     发送邮箱验证码。
 
-    当前第一版只支持已登录微信用户绑定邮箱，验证码通过 log 模式或 SMTP 发送。
+    `bind_email` 需要当前登录用户；`first_login` 用于网页端首次登录，不要求已登录。
     """
+
+    user_id = None
+    if payload.purpose.strip().lower() == "bind_email":
+        current = await get_current_user(authorization=authorization, session=session)
+        user_id = current.user.id
 
     result, code = await issue_email_verification_code(
         session,
         email=payload.email,
         purpose=payload.purpose,
-        user_id=current.user.id,
+        user_id=user_id,
         request_ip=get_client_ip(request),
     )
     await send_email_verification_code(
@@ -236,6 +258,84 @@ async def bind_email(
         user=build_user_summary(result.user, local_account=result.local_account),
     )
     return success_response(data.model_dump(), request_id=get_request_id(request))
+
+
+@router.post("/email/first-login")
+async def email_first_login(
+    payload: EmailFirstLoginRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    网页端首次邮箱验证码登录。
+
+    该流程只接受已经绑定邮箱但尚未设置密码的本地账号，成功后客户端必须进入设置密码页。
+    """
+
+    result = await complete_first_login_with_code(
+        session,
+        email=payload.email,
+        code=payload.code,
+    )
+    token_pair = await issue_auth_token_pair(
+        session,
+        user=result.user,
+        channel="email_code",
+        client_type="web",
+        user_agent=request.headers.get("user-agent"),
+        ip_address=get_client_ip(request),
+    )
+    await session.commit()
+    data = build_first_login_response(token_pair)
+    return success_response(data.model_dump(mode="json"), request_id=get_request_id(request))
+
+
+@router.post("/password/set")
+async def set_password(
+    payload: SetPasswordRequest,
+    request: Request,
+    current: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """首次设置网页端本地账号密码。"""
+
+    result = await set_local_account_password(
+        session,
+        user_id=current.user.id,
+        password=payload.password,
+    )
+    await session.commit()
+    data = SetPasswordResponse(
+        password_set=result.password_set,
+        user=build_user_summary(result.user, local_account=result.local_account),
+    )
+    return success_response(data.model_dump(), request_id=get_request_id(request))
+
+
+@router.post("/password/login")
+async def password_login(
+    payload: PasswordLoginRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """网页端邮箱密码登录。"""
+
+    result = await login_local_account_with_password(
+        session,
+        email=payload.email,
+        password=payload.password,
+    )
+    token_pair = await issue_auth_token_pair(
+        session,
+        user=result.user,
+        channel="password",
+        client_type="web",
+        user_agent=request.headers.get("user-agent"),
+        ip_address=get_client_ip(request),
+    )
+    await session.commit()
+    data = build_token_response(token_pair)
+    return success_response(data.model_dump(mode="json"), request_id=get_request_id(request))
 
 
 @router.get("/me")

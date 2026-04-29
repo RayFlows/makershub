@@ -89,3 +89,36 @@ class BindEmailResponse(BaseModel):
     created: bool
     password_required: bool
     user: UserSummary
+
+
+class EmailFirstLoginRequest(BaseModel):
+    """网页端首次邮箱验证码登录请求。"""
+
+    email: str = Field(min_length=3, max_length=255, description="已绑定但尚未设置密码的邮箱")
+    code: str = Field(min_length=6, max_length=6, description="6 位邮箱验证码")
+
+
+class EmailFirstLoginResponse(TokenResponse):
+    """网页端首次邮箱验证码登录响应。"""
+
+    password_required: bool = True
+
+
+class SetPasswordRequest(BaseModel):
+    """首次设置密码请求。"""
+
+    password: str = Field(min_length=8, max_length=128, description="新的登录密码")
+
+
+class SetPasswordResponse(BaseModel):
+    """首次设置密码响应。"""
+
+    password_set: bool
+    user: UserSummary
+
+
+class PasswordLoginRequest(BaseModel):
+    """邮箱密码登录请求。"""
+
+    email: str = Field(min_length=3, max_length=255, description="已绑定邮箱")
+    password: str = Field(min_length=1, max_length=128, description="登录密码")

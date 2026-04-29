@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config.settings import get_settings
 from app.core.errors import AppError
-from app.core.security import AccessToken, hash_password, issue_access_token
+from app.core.security import AccessToken, hash_password, issue_access_token, verify_password
 from app.modules.identity.models import AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount
 from app.modules.identity.repository import IdentityRepository
 from app.modules.organization.models import Position, UserPosition
@@ -51,6 +51,24 @@ class BindEmailResult:
     user: User
     local_account: LocalAccount
     created: bool
+
+
+@dataclass(frozen=True)
+class LocalAccountAuthResult:
+    """本地账号登录或首次登录校验结果。"""
+
+    user: User
+    local_account: LocalAccount
+    password_required: bool
+
+
+@dataclass(frozen=True)
+class PasswordSetResult:
+    """设置密码结果。"""
+
+    user: User
+    local_account: LocalAccount
+    password_set: bool
 
 
 @dataclass(frozen=True)
@@ -252,11 +270,21 @@ async def issue_email_verification_code(
         existing_account = await repository.get_local_account_by_email(normalized_email)
         if existing_account is not None and existing_account.user_id != user_id:
             raise AppError("EMAIL_ALREADY_BOUND", "该邮箱已经绑定其他用户", status_code=409)
+        code_user_id = user_id
+    elif normalized_purpose == "first_login":
+        existing_account = await repository.get_local_account_by_email(normalized_email)
+        if existing_account is None or existing_account.status != "active":
+            raise AppError("LOCAL_ACCOUNT_NOT_FOUND", "该邮箱尚未绑定账号", status_code=404)
+        if existing_account.password_hash is not None:
+            raise AppError("FIRST_LOGIN_NOT_REQUIRED", "该邮箱已设置密码，请使用密码登录", status_code=409)
+        code_user_id = existing_account.user_id
+    else:
+        code_user_id = user_id
 
     latest = await repository.get_latest_email_verification_code(
         email=normalized_email,
         purpose=normalized_purpose,
-        user_id=user_id,
+        user_id=code_user_id,
     )
     if latest is not None:
         latest_created_at = ensure_aware_datetime(latest.created_at)
@@ -294,7 +322,7 @@ async def issue_email_verification_code(
         ),
         expires_at=expires_at,
         request_ip=trim_optional_text(request_ip, max_length=64),
-        user_id=user_id,
+        user_id=code_user_id,
     )
     result = EmailVerificationIssueResult(
         email=normalized_email,
@@ -355,6 +383,84 @@ async def bind_email_with_code(
         user_id=user_id,
     )
     return await bind_verified_email_to_user(session, user_id=user_id, email=email)
+
+
+async def complete_first_login_with_code(
+    session: AsyncSession,
+    *,
+    email: str,
+    code: str,
+) -> LocalAccountAuthResult:
+    """使用邮箱验证码完成网页端首次登录校验。
+
+    只有已经通过小程序绑定邮箱、但尚未设置密码的本地账号可以进入该流程。
+    接口层会在本函数成功后签发登录令牌，并要求网页端立即进入设置密码页。
+    """
+
+    normalized_email = normalize_email(email)
+    repository = IdentityRepository(session)
+    account = await repository.get_local_account_by_email(normalized_email)
+    if account is None or account.status != "active":
+        raise AppError("LOCAL_ACCOUNT_NOT_FOUND", "该邮箱尚未绑定账号", status_code=404)
+    if account.password_hash is not None:
+        raise AppError("FIRST_LOGIN_NOT_REQUIRED", "该邮箱已设置密码，请使用密码登录", status_code=409)
+
+    await consume_email_verification_code(
+        session,
+        email=normalized_email,
+        purpose="first_login",
+        code=code,
+        user_id=account.user_id,
+    )
+    user = await load_active_user_for_local_account(repository, account)
+    await repository.mark_user_login(user)
+    return LocalAccountAuthResult(user=user, local_account=account, password_required=True)
+
+
+async def set_local_account_password(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    password: str,
+) -> PasswordSetResult:
+    """为当前登录用户首次设置本地账号密码。"""
+
+    validate_password(password)
+    repository = IdentityRepository(session)
+    account = await repository.get_local_account_by_user_id(user_id)
+    if account is None:
+        raise AppError("LOCAL_ACCOUNT_NOT_BOUND", "当前用户尚未绑定邮箱账号", status_code=409)
+    if account.status != "active":
+        raise AppError("LOCAL_ACCOUNT_DISABLED", "本地账号状态不可用", status_code=403)
+    if account.password_hash is not None:
+        raise AppError("PASSWORD_ALREADY_SET", "该账号已经设置过密码", status_code=409)
+
+    user = await load_active_user_for_local_account(repository, account)
+    await repository.set_local_account_password(account, password_hash=hash_password(password))
+    return PasswordSetResult(user=user, local_account=account, password_set=True)
+
+
+async def login_local_account_with_password(
+    session: AsyncSession,
+    *,
+    email: str,
+    password: str,
+) -> LocalAccountAuthResult:
+    """使用邮箱和密码登录本地账号。"""
+
+    normalized_email = normalize_email(email)
+    repository = IdentityRepository(session)
+    account = await repository.get_local_account_by_email(normalized_email)
+    if account is None or account.status != "active":
+        raise AppError("INVALID_EMAIL_OR_PASSWORD", "邮箱或密码错误", status_code=401)
+    if account.password_hash is None:
+        raise AppError("PASSWORD_NOT_SET", "该邮箱尚未设置密码，请先完成首次登录", status_code=403)
+    if not verify_password(password, account.password_hash):
+        raise AppError("INVALID_EMAIL_OR_PASSWORD", "邮箱或密码错误", status_code=401)
+
+    user = await load_active_user_for_local_account(repository, account)
+    await repository.mark_user_login(user)
+    return LocalAccountAuthResult(user=user, local_account=account, password_required=False)
 
 
 async def issue_auth_token_pair(
@@ -503,7 +609,7 @@ def normalize_email_code_purpose(purpose: str) -> str:
     """规范化邮箱验证码用途。"""
 
     normalized = purpose.strip().lower()
-    if normalized not in {"bind_email"}:
+    if normalized not in {"bind_email", "first_login"}:
         raise AppError("EMAIL_CODE_PURPOSE_UNSUPPORTED", "当前验证码用途暂未支持", status_code=422)
     return normalized
 
@@ -528,6 +634,12 @@ def normalize_wechat_identifier(value: str, *, field_name: str) -> str:
 
 def validate_initial_password(password: str) -> None:
     """校验初始化 999 使用的本地账号密码。"""
+
+    validate_password(password)
+
+
+def validate_password(password: str) -> None:
+    """校验本地账号密码复杂度底线。"""
 
     if len(password) < 8:
         raise AppError("PASSWORD_TOO_SHORT", "密码至少需要 8 位", status_code=422)
@@ -606,3 +718,17 @@ def ensure_aware_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value
+
+
+async def load_active_user_for_local_account(
+    repository: IdentityRepository,
+    account: LocalAccount,
+) -> User:
+    """读取本地账号所属的可用用户主体。"""
+
+    user = await repository.get_user_by_id(account.user_id)
+    if user is None:
+        raise AppError("AUTH_USER_NOT_FOUND", "登录用户不存在", status_code=401)
+    if user.status != "active":
+        raise AppError("AUTH_USER_DISABLED", "用户状态不可用", status_code=403)
+    return user

@@ -229,6 +229,121 @@ def test_bind_email_rejects_invalid_code(auth_client: TestClient) -> None:
     assert bind_response.json()["error"]["code"] == "EMAIL_CODE_INVALID_OR_EXPIRED"
 
 
+def test_first_login_sets_password_and_password_login(auth_client: TestClient) -> None:
+    login_response = auth_client.post(
+        "/api/v1/auth/wechat/login",
+        json={"dev_openid": "dev_openid_first_login_1"},
+    )
+    wechat_access_token = login_response.json()["data"]["access_token"]
+
+    bind_code_response = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        headers={"Authorization": f"Bearer {wechat_access_token}"},
+        json={"email": "first-login@example.com", "purpose": "bind_email"},
+    )
+    bind_code = bind_code_response.json()["data"]["dev_code"]
+    bind_response = auth_client.post(
+        "/api/v1/auth/email/bind",
+        headers={"Authorization": f"Bearer {wechat_access_token}"},
+        json={"email": "first-login@example.com", "code": bind_code},
+    )
+    assert bind_response.status_code == 200
+
+    first_login_code_response = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        json={"email": "first-login@example.com", "purpose": "first_login"},
+    )
+    assert first_login_code_response.status_code == 200
+    first_login_code = first_login_code_response.json()["data"]["dev_code"]
+
+    first_login_response = auth_client.post(
+        "/api/v1/auth/email/first-login",
+        json={"email": "first-login@example.com", "code": first_login_code},
+    )
+    assert first_login_response.status_code == 200
+    first_login_body = first_login_response.json()
+    first_login_token = first_login_body["data"]["access_token"]
+    assert first_login_body["data"]["password_required"] is True
+    assert first_login_body["data"]["user"]["email"] == "first-login@example.com"
+
+    first_login_me_response = auth_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {first_login_token}"},
+    )
+    assert first_login_me_response.status_code == 200
+    assert first_login_me_response.json()["data"]["claims"]["channel"] == "email_code"
+
+    set_password_response = auth_client.post(
+        "/api/v1/auth/password/set",
+        headers={"Authorization": f"Bearer {first_login_token}"},
+        json={"password": "super-safe-password"},
+    )
+    assert set_password_response.status_code == 200
+    assert set_password_response.json()["data"]["password_set"] is True
+
+    repeat_first_login_code_response = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        json={"email": "first-login@example.com", "purpose": "first_login"},
+    )
+    assert repeat_first_login_code_response.status_code == 409
+    assert repeat_first_login_code_response.json()["error"]["code"] == "FIRST_LOGIN_NOT_REQUIRED"
+
+    password_login_response = auth_client.post(
+        "/api/v1/auth/password/login",
+        json={"email": "first-login@example.com", "password": "super-safe-password"},
+    )
+    assert password_login_response.status_code == 200
+    password_token = password_login_response.json()["data"]["access_token"]
+
+    password_me_response = auth_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {password_token}"},
+    )
+    assert password_me_response.status_code == 200
+    assert password_me_response.json()["data"]["claims"]["channel"] == "password"
+
+
+def test_password_login_rejects_unset_password(auth_client: TestClient) -> None:
+    login_response = auth_client.post(
+        "/api/v1/auth/wechat/login",
+        json={"dev_openid": "dev_openid_first_login_2"},
+    )
+    access_token = login_response.json()["data"]["access_token"]
+
+    send_response = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"email": "unset-password@example.com", "purpose": "bind_email"},
+    )
+    bind_response = auth_client.post(
+        "/api/v1/auth/email/bind",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={
+            "email": "unset-password@example.com",
+            "code": send_response.json()["data"]["dev_code"],
+        },
+    )
+    assert bind_response.status_code == 200
+
+    password_login_response = auth_client.post(
+        "/api/v1/auth/password/login",
+        json={"email": "unset-password@example.com", "password": "super-safe-password"},
+    )
+
+    assert password_login_response.status_code == 403
+    assert password_login_response.json()["error"]["code"] == "PASSWORD_NOT_SET"
+
+
+def test_first_login_send_code_rejects_unbound_email(auth_client: TestClient) -> None:
+    response = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        json={"email": "unbound@example.com", "purpose": "first_login"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "LOCAL_ACCOUNT_NOT_FOUND"
+
+
 def test_wechat_dev_login_reuses_same_user(auth_client: TestClient) -> None:
     first = auth_client.post(
         "/api/v1/auth/wechat/login",

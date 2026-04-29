@@ -9,15 +9,14 @@
 - `POST /api/v1/auth/wechat/login`：小程序微信登录，支持本地开发态 `dev_openid`；
 - `POST /api/v1/auth/refresh`：使用 refresh token 续签并轮换令牌；
 - `POST /api/v1/auth/logout`：撤销 refresh token 对应的登录会话；
-- `POST /api/v1/auth/email/send-code`：已登录用户发送绑定邮箱验证码；
+- `POST /api/v1/auth/email/send-code`：发送邮箱验证码，支持绑定邮箱和网页端首次登录；
 - `POST /api/v1/auth/email/bind`：已登录用户使用验证码绑定邮箱；
+- `POST /api/v1/auth/email/first-login`：网页端首次邮箱验证码登录；
+- `POST /api/v1/auth/password/set`：首次设置本地账号密码；
+- `POST /api/v1/auth/password/login`：网页端邮箱密码登录；
 - `GET /api/v1/auth/me`：通过 `Authorization: Bearer <token>` 获取当前登录用户摘要。
 
 ## 后续待实现
 
-- 小程序内绑定邮箱；
-- 网页端首次邮箱验证码登录；
-- 首次设置密码；
-- 邮箱密码登录；
 - 密码重置；
 - 更换绑定邮箱。

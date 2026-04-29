@@ -290,6 +290,31 @@ class IdentityRepository:
         await self.session.flush()
         return record
 
+    async def set_local_account_password(
+        self,
+        account: LocalAccount,
+        *,
+        password_hash: str,
+    ) -> LocalAccount:
+        """设置本地账号密码。"""
+
+        from datetime import UTC, datetime
+
+        now = datetime.now(UTC)
+        account.password_hash = password_hash
+        account.password_set_at = now
+        await self.session.flush()
+        return account
+
+    async def mark_user_login(self, user: User) -> User:
+        """刷新用户最近登录时间。"""
+
+        from datetime import UTC, datetime
+
+        user.last_login_at = datetime.now(UTC)
+        await self.session.flush()
+        return user
+
     async def create_auth_session(
         self,
         *,
