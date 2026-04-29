@@ -182,7 +182,11 @@ function App() {
     <ConfigProvider
       theme={{
         token: {
-          colorPrimary: "#0f766e",
+          colorPrimary: "#c96442",
+          colorInfo: "#c96442",
+          colorSuccess: "#7c6f58",
+          colorWarning: "#b8843a",
+          colorError: "#b55348",
           borderRadius: 6,
           fontFamily:
             "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
@@ -497,7 +501,7 @@ function MemberShell({
             <span>成员工作台</span>
           </div>
           <Space size={12}>
-            <Tag color={channel === "password" ? "green" : "cyan"}>{channel || "active"}</Tag>
+            <Tag className="channel-tag">{channel || "active"}</Tag>
             <Button icon={<LogOut size={16} />} onClick={onLogout}>
               退出
             </Button>
