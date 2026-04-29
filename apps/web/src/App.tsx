@@ -180,7 +180,7 @@ function App() {
     <ConfigProvider
       theme={{
         token: {
-          colorBgBase: "#222831",
+          colorBgBase: "#f8f8f8",
           colorBgContainer: "#FFFFFF",
           colorText: "#222831",
           colorTextSecondary: "#4E5969",
