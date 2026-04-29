@@ -16,4 +16,10 @@ docker compose -f infra/docker/compose.dev.yml exec api uv run alembic -c alembi
 docker compose -f infra/docker/compose.dev.yml exec api uv run alembic -c alembic.ini upgrade head
 ```
 
-第一阶段实现具体数据库模型后，再生成第一批业务迁移。
+当前首批迁移为：
+
+```text
+20260429_0001_create_identity_tables.py
+```
+
+它创建身份、微信账号、本地账号、邮箱验证码、职务和用户职务关系表，并初始化基础职务数据。

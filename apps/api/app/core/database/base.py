@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy import BigInteger, DateTime, Integer, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 NAMING_CONVENTION = {
@@ -18,6 +18,13 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
+id_type = BigInteger().with_variant(Integer, "sqlite")
+
+
+class IdMixin:
+    id: Mapped[int] = mapped_column(id_type, primary_key=True, autoincrement=True)
+
+
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -30,3 +37,7 @@ class TimestampMixin:
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class SoftDeleteMixin:
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config.settings import get_settings
 from app.core.database.base import Base
+from app.modules.identity import models as identity_models  # noqa: F401
+from app.modules.organization import models as organization_models  # noqa: F401
 
 config = context.config
 
