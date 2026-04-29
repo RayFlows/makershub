@@ -11,6 +11,8 @@ var config = {
     refresh: apiV1 + "/auth/refresh",
     logout: apiV1 + "/auth/logout",
     me: apiV1 + "/auth/me",
+    emailSendCode: apiV1 + "/auth/email/send-code",
+    emailBind: apiV1 + "/auth/email/bind",
   },
   users: {
     login: host + "/users/wx-login",

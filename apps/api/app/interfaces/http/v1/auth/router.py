@@ -15,18 +15,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config.settings import get_settings
 from app.core.database import get_session
 from app.core.errors import AppError
+from app.infrastructure.email import send_email_verification_code
 from app.infrastructure.wechat import WechatSession, exchange_code_for_session
 from app.interfaces.http.dependencies import CurrentUser, get_current_user
 from app.interfaces.http.v1.auth.schemas import (
+    BindEmailRequest,
+    BindEmailResponse,
     LogoutRequest,
     RefreshTokenRequest,
+    SendEmailCodeRequest,
+    SendEmailCodeResponse,
     TokenResponse,
     UserSummary,
     WechatLoginRequest,
 )
 from app.modules.identity.service import (
     AuthTokenPair,
+    bind_email_with_code,
     issue_auth_token_pair,
+    issue_email_verification_code,
     login_wechat_identity,
     refresh_auth_token_pair,
     revoke_auth_token_pair,
@@ -161,6 +168,68 @@ async def logout(
     )
     await session.commit()
     return success_response({"revoked": True}, request_id=get_request_id(request))
+
+
+@router.post("/email/send-code")
+async def send_email_code(
+    payload: SendEmailCodeRequest,
+    request: Request,
+    current: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    发送邮箱验证码。
+
+    当前第一版只支持已登录微信用户绑定邮箱，验证码通过 log 模式或 SMTP 发送。
+    """
+
+    result, code = await issue_email_verification_code(
+        session,
+        email=payload.email,
+        purpose=payload.purpose,
+        user_id=current.user.id,
+        request_ip=get_client_ip(request),
+    )
+    await send_email_verification_code(
+        email=result.email,
+        purpose=result.purpose,
+        code=code,
+        expires_minutes=get_settings().email_code_expire_minutes,
+    )
+    await session.commit()
+    data = SendEmailCodeResponse(
+        email=result.email,
+        purpose=result.purpose,
+        expires_at=result.expires_at,
+        delivery_mode=result.delivery_mode,
+        dev_code=result.dev_code,
+    )
+    return success_response(data.model_dump(mode="json"), request_id=get_request_id(request))
+
+
+@router.post("/email/bind")
+async def bind_email(
+    payload: BindEmailRequest,
+    request: Request,
+    current: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """使用邮箱验证码把邮箱绑定到当前用户主体。"""
+
+    result = await bind_email_with_code(
+        session,
+        user_id=current.user.id,
+        email=payload.email,
+        code=payload.code,
+    )
+    await session.commit()
+    data = BindEmailResponse(
+        email=result.local_account.email,
+        created=result.created,
+        password_required=result.local_account.password_hash is None,
+        user=build_user_summary(result.user),
+    )
+    return success_response(data.model_dump(), request_id=get_request_id(request))
 
 
 @router.get("/me")

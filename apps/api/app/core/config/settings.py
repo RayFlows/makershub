@@ -41,6 +41,22 @@ class Settings(BaseSettings):
         validation_alias="WECHAT_CODE2SESSION_URL",
     )
 
+    # --- 邮件验证码配置 ---
+    email_delivery_mode: str = Field("log", validation_alias="EMAIL_DELIVERY_MODE")
+    email_code_expire_minutes: int = Field(5, validation_alias="EMAIL_CODE_EXPIRE_MINUTES")
+    email_code_resend_interval_seconds: int = Field(
+        60,
+        validation_alias="EMAIL_CODE_RESEND_INTERVAL_SECONDS",
+    )
+    email_code_hourly_limit: int = Field(10, validation_alias="EMAIL_CODE_HOURLY_LIMIT")
+    smtp_host: str | None = Field(None, validation_alias="SMTP_HOST")
+    smtp_port: int = Field(465, validation_alias="SMTP_PORT")
+    smtp_use_ssl: bool = Field(True, validation_alias="SMTP_USE_SSL")
+    smtp_username: str | None = Field(None, validation_alias="SMTP_USERNAME")
+    smtp_password: str | None = Field(None, validation_alias="SMTP_PASSWORD")
+    smtp_from_email: str | None = Field(None, validation_alias="SMTP_FROM_EMAIL")
+    smtp_from_name: str = Field("MakersHub", validation_alias="SMTP_FROM_NAME")
+
     # --- 数据库配置 ---
     database_url: str = Field(
         "mysql+aiomysql://makershub:makershub@mysql:3306/makershub_dev",

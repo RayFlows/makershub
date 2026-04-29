@@ -55,3 +55,36 @@ class LogoutRequest(BaseModel):
     """退出登录请求。"""
 
     refresh_token: str = Field(min_length=1, description="需要撤销的 refresh token")
+
+
+class SendEmailCodeRequest(BaseModel):
+    """发送邮箱验证码请求。"""
+
+    email: str = Field(min_length=3, max_length=255, description="目标邮箱")
+    purpose: str = Field(default="bind_email", description="验证码用途")
+
+
+class SendEmailCodeResponse(BaseModel):
+    """发送邮箱验证码响应。"""
+
+    email: str
+    purpose: str
+    expires_at: datetime
+    delivery_mode: str
+    dev_code: str | None = None
+
+
+class BindEmailRequest(BaseModel):
+    """绑定邮箱请求。"""
+
+    email: str = Field(min_length=3, max_length=255, description="已接收验证码的邮箱")
+    code: str = Field(min_length=6, max_length=6, description="6 位邮箱验证码")
+
+
+class BindEmailResponse(BaseModel):
+    """绑定邮箱响应。"""
+
+    email: str
+    created: bool
+    password_required: bool
+    user: UserSummary

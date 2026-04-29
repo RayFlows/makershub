@@ -180,6 +180,7 @@ Authorization: Bearer <token>
 | `POST` | `/api/v1/auth/refresh` | 使用 refresh token 续签并轮换令牌 |
 | `POST` | `/api/v1/auth/logout` | 退出登录并撤销会话 |
 | `POST` | `/api/v1/auth/email/send-code` | 发送邮箱验证码 |
+| `POST` | `/api/v1/auth/email/bind` | 已登录小程序用户绑定邮箱 |
 | `POST` | `/api/v1/auth/email/first-login` | 网页端首次邮箱验证码登录 |
 | `POST` | `/api/v1/auth/password/set` | 首次设置密码 |
 | `POST` | `/api/v1/auth/password/login` | 邮箱密码登录 |
@@ -196,6 +197,8 @@ Authorization: Bearer <token>
 - `/auth/wechat/login` 生产环境必须使用微信 `code2session`；本地开发和测试环境可以使用受控 `dev_openid`，生产环境必须禁用；
 - `/auth/wechat/login` 必须返回 `expires_in`、`expires_at`、`refresh_token` 和 `refresh_expires_at`，客户端据此维护登录态；
 - `/auth/me` 是客户端启动态校验接口，不能被页面层绕过成本地 token 存在性判断；
+- `/auth/email/send-code` 第一版只支持已登录用户的 `bind_email` 用途，后续再扩展网页端首次登录、重置密码和更换邮箱；
+- 本地开发使用 `EMAIL_DELIVERY_MODE=log`，验证码写入服务日志，并只在 local/test/development 响应中返回 `dev_code`；
 - 邮箱验证码 5 分钟有效；
 - 同一邮箱 1 小时最多发送 10 次；
 - 每次重新请求至少间隔 1 分钟；
@@ -211,7 +214,8 @@ Authorization: Bearer <token>
 - 已完成已登录微信用户绑定邮箱并生成待设置密码本地账号的服务层逻辑；
 - 已完成 `/api/v1/auth/wechat/login`、`/api/v1/auth/refresh`、`/api/v1/auth/logout` 和 `/api/v1/auth/me` 的 HTTP 接口；
 - 已完成短期 access token、长期 refresh token、会话表、refresh token 轮换和退出撤销；
-- 邮箱验证码、首次设置密码、邮箱密码登录和密码重置接口仍待实现。
+- 已完成已登录用户绑定邮箱的验证码发送、限流、消费和 `/api/v1/auth/email/bind`；
+- 网页端首次邮箱验证码登录、首次设置密码、邮箱密码登录和密码重置接口仍待实现。
 
 ### 组织与成员
 

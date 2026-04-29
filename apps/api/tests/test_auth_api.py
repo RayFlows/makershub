@@ -137,6 +137,89 @@ def test_logout_revokes_access_session(auth_client: TestClient) -> None:
     assert me_response.json()["error"]["code"] == "AUTH_SESSION_REVOKED"
 
 
+def test_send_email_code_and_bind_email(auth_client: TestClient) -> None:
+    login_response = auth_client.post(
+        "/api/v1/auth/wechat/login",
+        json={"dev_openid": "dev_openid_bind_email_1"},
+    )
+    access_token = login_response.json()["data"]["access_token"]
+
+    send_response = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"email": "Ray@Example.COM", "purpose": "bind_email"},
+    )
+
+    assert send_response.status_code == 200
+    send_body = send_response.json()
+    assert send_body["data"]["email"] == "ray@example.com"
+    assert send_body["data"]["purpose"] == "bind_email"
+    assert send_body["data"]["delivery_mode"] == "log"
+    code = send_body["data"]["dev_code"]
+    assert len(code) == 6
+
+    bind_response = auth_client.post(
+        "/api/v1/auth/email/bind",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"email": "ray@example.com", "code": code},
+    )
+
+    assert bind_response.status_code == 200
+    bind_body = bind_response.json()
+    assert bind_body["data"]["email"] == "ray@example.com"
+    assert bind_body["data"]["created"] is True
+    assert bind_body["data"]["password_required"] is True
+
+
+def test_send_email_code_rate_limit(auth_client: TestClient) -> None:
+    login_response = auth_client.post(
+        "/api/v1/auth/wechat/login",
+        json={"dev_openid": "dev_openid_bind_email_2"},
+    )
+    access_token = login_response.json()["data"]["access_token"]
+
+    first = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"email": "rate@example.com", "purpose": "bind_email"},
+    )
+    second = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"email": "rate@example.com", "purpose": "bind_email"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["error"]["code"] == "EMAIL_CODE_TOO_FREQUENT"
+
+
+def test_bind_email_rejects_invalid_code(auth_client: TestClient) -> None:
+    login_response = auth_client.post(
+        "/api/v1/auth/wechat/login",
+        json={"dev_openid": "dev_openid_bind_email_3"},
+    )
+    access_token = login_response.json()["data"]["access_token"]
+
+    send_response = auth_client.post(
+        "/api/v1/auth/email/send-code",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"email": "wrong-code@example.com", "purpose": "bind_email"},
+    )
+    assert send_response.status_code == 200
+    issued_code = send_response.json()["data"]["dev_code"]
+    wrong_code = "000000" if issued_code != "000000" else "000001"
+
+    bind_response = auth_client.post(
+        "/api/v1/auth/email/bind",
+        headers={"Authorization": f"Bearer {access_token}"},
+        json={"email": "wrong-code@example.com", "code": wrong_code},
+    )
+
+    assert bind_response.status_code == 422
+    assert bind_response.json()["error"]["code"] == "EMAIL_CODE_INVALID_OR_EXPIRED"
+
+
 def test_wechat_dev_login_reuses_same_user(auth_client: TestClient) -> None:
     first = auth_client.post(
         "/api/v1/auth/wechat/login",
