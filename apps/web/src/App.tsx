@@ -12,11 +12,9 @@ import {
   Space,
   Spin,
   Statistic,
-  Tabs,
   Tag,
   Typography,
 } from "antd";
-import type { TabsProps } from "antd";
 import {
   Activity,
   ArrowRight,
@@ -182,37 +180,37 @@ function App() {
     <ConfigProvider
       theme={{
         token: {
-          colorBgBase: "#FAF9F5",
+          colorBgBase: "#f5f5f7",
           colorBgContainer: "#FFFFFF",
-          colorText: "#37352f",
-          colorTextSecondary: "#6b6a68",
-          colorTextTertiary: "#9b9a97",
-          colorBorder: "rgba(31, 30, 29, 0.15)",
-          colorBorderSecondary: "rgba(31, 30, 29, 0.1)",
-          colorPrimary: "#ae5630",
-          colorInfo: "#ae5630",
-          colorSuccess: "#437426",
-          colorWarning: "#b8843a",
-          colorError: "#a73d39",
-          borderRadius: 8,
-          borderRadiusLG: 12,
+          colorText: "#1d1d1f",
+          colorTextSecondary: "#6e6e73",
+          colorTextTertiary: "#86868b",
+          colorBorder: "rgba(0, 0, 0, 0.14)",
+          colorBorderSecondary: "rgba(0, 0, 0, 0.08)",
+          colorPrimary: "#0071e3",
+          colorInfo: "#0071e3",
+          colorSuccess: "#248a3d",
+          colorWarning: "#bf7b00",
+          colorError: "#d70015",
+          borderRadius: 10,
+          borderRadiusLG: 20,
           borderRadiusSM: 6,
           controlHeight: 44,
           controlHeightSM: 36,
           fontSize: 14,
           fontSizeHeading1: 26,
           fontFamily:
-            "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif",
+            "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif",
         },
         components: {
           Button: {
-            borderRadius: 8,
+            borderRadius: 12,
             controlHeight: 44,
             fontWeight: 500,
             primaryShadow: "none",
           },
           Input: {
-            borderRadius: 8,
+            borderRadius: 12,
             controlHeight: 44,
           },
           Tabs: {
@@ -236,68 +234,31 @@ function LoadingScreen() {
 }
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: (auth: AuthTokenData, required?: boolean) => void }) {
-  const [activeTab, setActiveTab] = useState("password");
-  const tabItems: TabsProps["items"] = [
-    {
-      key: "password",
-      label: "密码登录",
-      children: <PasswordLoginForm onAuthenticated={onAuthenticated} />,
-    },
-    {
-      key: "first-login",
-      label: "首次登录",
-      children: <FirstLoginForm onAuthenticated={onAuthenticated} />,
-    },
-  ];
+  const [mode, setMode] = useState<"password" | "first-login">("password");
 
   return (
     <main className="auth-page">
-      <section className="auth-card">
-        <aside className="auth-context" aria-label="MakersHub">
-          <div className="brand-lockup">
-            <div className="auth-mark">MH</div>
-            <div>
-              <strong>MakersHub</strong>
-              <span>成员端</span>
-            </div>
-          </div>
-          <nav className="auth-nav" aria-label="登录方式">
-            <span className="auth-nav-label">账号</span>
-            <button
-              className={activeTab === "password" ? "auth-nav-item is-active" : "auth-nav-item"}
-              type="button"
-              onClick={() => setActiveTab("password")}
-            >
-              <KeyRound size={16} />
-              <span>密码登录</span>
-            </button>
-            <button
-              className={activeTab === "first-login" ? "auth-nav-item is-active" : "auth-nav-item"}
-              type="button"
-              onClick={() => setActiveTab("first-login")}
-            >
-              <Mail size={16} />
-              <span>首次登录</span>
-            </button>
-          </nav>
-        </aside>
+      <section className="auth-card auth-card-login">
         <section className="auth-panel">
           <div className="auth-form-shell">
-            <div className="auth-heading compact">
-              <Typography.Title level={1}>
-                {activeTab === "password" ? "登录 MakersHub" : "首次登录"}
-              </Typography.Title>
-              <Typography.Text type="secondary">
-                {activeTab === "password" ? "使用已绑定邮箱继续" : "输入绑定邮箱和验证码"}
-              </Typography.Text>
+            <div className="login-brand" aria-label="开源硬件协会">
+              <div className="auth-mark">SC</div>
+              <div>
+                <strong>开源硬件协会</strong>
+                <span>SCUMAKER</span>
+              </div>
             </div>
-            <Tabs
-              activeKey={activeTab}
-              className="auth-tabs"
-              items={tabItems}
-              tabBarStyle={{ display: "none" }}
-              onChange={setActiveTab}
-            />
+            {mode === "password" ? (
+              <>
+                <AuthPanelTitle title="登录成员端" subtitle="使用已绑定邮箱继续" />
+                <PasswordLoginForm onAuthenticated={onAuthenticated} onFirstLogin={() => setMode("first-login")} />
+              </>
+            ) : (
+              <>
+                <AuthPanelTitle title="首次登录" subtitle="仅用于已在小程序绑定邮箱的账号" />
+                <FirstLoginForm onAuthenticated={onAuthenticated} onBack={() => setMode("password")} />
+              </>
+            )}
           </div>
         </section>
       </section>
@@ -316,8 +277,10 @@ function AuthPanelTitle({ title, subtitle }: { title: string; subtitle: string }
 
 function PasswordLoginForm({
   onAuthenticated,
+  onFirstLogin,
 }: {
   onAuthenticated: (auth: AuthTokenData, required?: boolean) => void;
+  onFirstLogin: () => void;
 }) {
   const [form] = Form.useForm<PasswordLoginValues>();
   const [submitting, setSubmitting] = useState(false);
@@ -355,14 +318,21 @@ function PasswordLoginForm({
       <Button block type="primary" htmlType="submit" loading={submitting} icon={<ArrowRight size={16} />}>
         登录
       </Button>
+      <div className="auth-secondary-actions">
+        <button type="button" onClick={onFirstLogin}>
+          首次登录
+        </button>
+      </div>
     </Form>
   );
 }
 
 function FirstLoginForm({
   onAuthenticated,
+  onBack,
 }: {
   onAuthenticated: (auth: AuthTokenData, required?: boolean) => void;
+  onBack: () => void;
 }) {
   const [form] = Form.useForm<FirstLoginValues>();
   const [submitting, setSubmitting] = useState(false);
@@ -443,6 +413,11 @@ function FirstLoginForm({
       <Button block type="primary" htmlType="submit" loading={submitting} icon={<ArrowRight size={16} />}>
         继续
       </Button>
+      <div className="auth-secondary-actions">
+        <button type="button" onClick={onBack}>
+          返回密码登录
+        </button>
+      </div>
     </Form>
   );
 }
@@ -531,10 +506,10 @@ function MemberShell({
     <Layout className="app-shell">
       <Layout.Sider width={252} className="side-nav">
         <div className="brand">
-          <div className="auth-mark small">MH</div>
+          <div className="auth-mark small">SC</div>
           <div>
-            <strong>MakersHub</strong>
-            <span>成员端</span>
+            <strong>开源硬件协会</strong>
+            <span>SCUMAKER</span>
           </div>
         </div>
         <Menu mode="inline" defaultSelectedKeys={["profile"]} items={menuItems} />
@@ -543,7 +518,7 @@ function MemberShell({
         <Layout.Header className="top-bar">
           <div className="top-title">
             <CalendarClock size={18} />
-            <span>成员工作台</span>
+            <span>协会成员端</span>
           </div>
           <Space size={12}>
             <Tag className="channel-tag">{channel || "active"}</Tag>
