@@ -12,6 +12,7 @@ from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.modules.identity.models import AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount
 from app.modules.organization.models import Position, UserPosition
@@ -50,7 +51,8 @@ class IdentityRepository:
     async def get_user_by_id(self, user_id: int) -> User | None:
         """按内部用户主键查找用户主体。"""
 
-        return await self.session.get(User, user_id)
+        statement = select(User).options(selectinload(User.local_account)).where(User.id == user_id)
+        return await self.session.scalar(statement)
 
     async def get_auth_session_by_id(self, auth_session_id: int) -> AuthSession | None:
         """按会话 ID 查找登录会话。"""

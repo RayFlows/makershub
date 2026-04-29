@@ -78,6 +78,7 @@ def test_wechat_dev_login_returns_token_and_me(auth_client: TestClient) -> None:
     me_body = me_response.json()
     assert me_body["success"] is True
     assert me_body["data"]["user"]["id"] == user_id
+    assert me_body["data"]["user"]["email"] is None
     assert me_body["data"]["claims"]["channel"] == "wechat"
 
 
@@ -169,6 +170,14 @@ def test_send_email_code_and_bind_email(auth_client: TestClient) -> None:
     assert bind_body["data"]["email"] == "ray@example.com"
     assert bind_body["data"]["created"] is True
     assert bind_body["data"]["password_required"] is True
+    assert bind_body["data"]["user"]["email"] == "ray@example.com"
+
+    me_response = auth_client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    assert me_response.status_code == 200
+    assert me_response.json()["data"]["user"]["email"] == "ray@example.com"
 
 
 def test_send_email_code_rate_limit(auth_client: TestClient) -> None:

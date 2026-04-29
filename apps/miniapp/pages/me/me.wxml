@@ -28,6 +28,15 @@
       <image src="{{userInfo.profile_photo}}" mode="aspectFill" />
     </view>
   </view>
+
+  <!-- 账号邮箱绑定状态 -->
+  <button class="account-row" bindtap="goToEmailBindPage">
+    <view class="account-text">
+      <text class="account-label">邮箱</text>
+      <text class="account-value">{{userInfo.email || '未绑定'}}</text>
+    </view>
+    <image class="account-arrow" src="{{icons.blackArrow}}" mode="aspectFill" />
+  </button>
   
   <!-- 此部分展示协会成员身份和积分信息 -->   
   <!--协会成员和积分-->
@@ -103,7 +112,6 @@
   </view>
 </view>
   
-
 
 
 

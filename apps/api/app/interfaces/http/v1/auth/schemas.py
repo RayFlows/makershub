@@ -31,6 +31,7 @@ class UserSummary(BaseModel):
     display_name: str
     avatar_url: str | None
     status: str
+    email: str | None = None
 
 
 class TokenResponse(BaseModel):

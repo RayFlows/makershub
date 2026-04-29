@@ -19,7 +19,11 @@
 - `auth.wechatLogin`：`/api/v1/auth/wechat/login`；
 - `auth.refresh`：`/api/v1/auth/refresh`；
 - `auth.logout`：`/api/v1/auth/logout`；
-- `auth.me`：`/api/v1/auth/me`。
+- `auth.me`：`/api/v1/auth/me`；
+- `auth.emailSendCode`：`/api/v1/auth/email/send-code`；
+- `auth.emailBind`：`/api/v1/auth/email/bind`。
+
+当前小程序已经在“我的”页增加邮箱绑定入口。开发环境下后端使用 `EMAIL_DELIVERY_MODE=log` 时，验证码会写入后端日志，并在 local/test/development 响应中返回 `dev_code`，小程序会自动填入验证码，便于本地联调。
 
 其他业务页面仍主要指向旧的开发接口地址，后续需要按新后端 API 契约逐步改造请求封装和页面数据适配。
 

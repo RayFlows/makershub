@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config.settings import get_settings
@@ -44,14 +45,19 @@ from app.shared.responses import success_response
 router = APIRouter(prefix="/auth")
 
 
-def build_user_summary(user) -> UserSummary:
+def build_user_summary(user, *, local_account=None) -> UserSummary:
     """把用户 ORM 对象转换成接口层用户摘要。"""
+
+    account = local_account
+    if account is None and "local_account" not in inspect(user).unloaded:
+        account = user.local_account
 
     return UserSummary(
         id=user.id,
         display_name=user.display_name,
         avatar_url=user.avatar_url,
         status=user.status,
+        email=account.email if account is not None and account.status == "active" else None,
     )
 
 
@@ -227,7 +233,7 @@ async def bind_email(
         email=result.local_account.email,
         created=result.created,
         password_required=result.local_account.password_hash is None,
-        user=build_user_summary(result.user),
+        user=build_user_summary(result.user, local_account=result.local_account),
     )
     return success_response(data.model_dump(), request_id=get_request_id(request))
 

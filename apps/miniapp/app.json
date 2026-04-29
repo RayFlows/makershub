@@ -2,6 +2,7 @@
   "pages": [
     "pages/index/index",
     "pages/me/me",
+    "pages/email_bind/email_bind",
     "pages/editPage/editPage",
     "pages/club_work/club_work",
     "pages/publicity_work_page/publicity_work_page",

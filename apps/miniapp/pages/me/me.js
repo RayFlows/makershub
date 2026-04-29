@@ -17,6 +17,7 @@ Page({
       motto: "什么都没有捏",
       score: 0,
       role: 0,
+      email: "",
     },
     isAssociationMember: false,
     itemHandler: [
@@ -83,6 +84,7 @@ Page({
           motto: cachedProfile.motto || this.data.userInfo.motto,
           score: cachedProfile.score || this.data.userInfo.score,
           role: cachedProfile.role || this.data.userInfo.role,
+          email: cachedProfile.email || this.data.userInfo.email,
         },
         isAssociationMember: cachedProfile.role > 0,
       });
@@ -106,6 +108,16 @@ Page({
     // 直接跳转,编辑页面会自己从缓存读取用户信息
     wx.navigateTo({
       url: '/pages/editPage/editPage'
+    });
+  },
+
+  /**
+   * 跳转到邮箱绑定页面
+   */
+  goToEmailBindPage() {
+    console.log('[Me] 跳转到邮箱绑定页面');
+    wx.navigateTo({
+      url: '/pages/email_bind/email_bind'
     });
   },
 

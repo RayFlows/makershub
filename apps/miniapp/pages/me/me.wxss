@@ -63,6 +63,52 @@ button:active {
   height: 100%;
 }
 
+.account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 80%;
+  height: 88rpx;
+  margin: 32rpx auto 0;
+  padding: 0 32rpx;
+  background-color: #EEEEEE;
+  color: #222831;
+  border-radius: 20rpx;
+  box-sizing: border-box;
+}
+
+.account-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+}
+
+.account-label {
+  font-size: 24rpx;
+  color: #666666;
+  line-height: 32rpx;
+}
+
+.account-value {
+  max-width: 560rpx;
+  font-size: 30rpx;
+  color: #222831;
+  font-weight: bold;
+  line-height: 40rpx;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.account-arrow {
+  flex-shrink: 0;
+  width: 36rpx;
+  height: 30rpx;
+  margin-left: 24rpx;
+}
+
 .membership {
   display: flex;
   flex-direction:row;

@@ -115,6 +115,7 @@ function fetchAndStoreUserProfile(token) {
           score: 0,
           role: 0,
           status: user.status,
+          email: user.email || '',
         };
 
         // 存储到缓存
@@ -138,6 +139,7 @@ function fetchAndStoreUserProfile(token) {
           motto: info.motto || '',
           score: info.score || 0,
           role: info.role || 0,
+          email: info.email || '',
         };
         wx.setStorageSync(USER_PROFILE_KEY, userProfile);
       } else if (res.statusCode === 401) {

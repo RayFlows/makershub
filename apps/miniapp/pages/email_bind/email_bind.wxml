@@ -1,0 +1,76 @@
+<!--pages/email_bind/email_bind.wxml-->
+<!--邮箱绑定页面-->
+<view class="container">
+  <!-- 顶部导航栏 -->
+  <view class="nav">
+    <navBar
+      title="绑定邮箱"
+      background="#222831"
+      color="#FFFFFF"
+      back="{{true}}"
+      home="{{false}}"
+      iconTheme="white"
+      bindback="handlerGobackClick"
+      showEditIcon="{{false}}">
+    </navBar>
+  </view>
+
+  <view class="content">
+    <!-- 当前绑定状态 -->
+    <view class="status-box">
+      <text class="status-title">{{hasBoundEmail ? '邮箱已绑定' : '绑定登录邮箱'}}</text>
+      <text class="status-desc">{{hasBoundEmail ? currentEmail : '绑定后可用于网页端登录和账号找回'}}</text>
+    </view>
+
+    <!-- 已绑定状态 -->
+    <view wx:if="{{hasBoundEmail}}" class="bound-box">
+      <text class="bound-label">当前邮箱</text>
+      <text class="bound-email">{{currentEmail}}</text>
+      <button class="return-button" bindtap="handlerGobackClick">返回</button>
+    </view>
+
+    <!-- 未绑定时填写邮箱和验证码 -->
+    <view wx:if="{{!hasBoundEmail}}" class="form-box">
+      <view class="form-section">
+        <text class="label">邮箱</text>
+        <input
+          class="input {{isEmailFocused ? 'focused' : ''}}"
+          type="text"
+          value="{{email}}"
+          placeholder="请输入邮箱地址"
+          bindinput="updateEmail"
+          bindfocus="onEmailFocused"
+          bindblur="onEmailBlur" />
+      </view>
+
+      <view class="form-section">
+        <text class="label">验证码</text>
+        <view class="code-row">
+          <input
+            class="input code-input {{isCodeFocused ? 'focused' : ''}}"
+            type="number"
+            maxlength="6"
+            value="{{code}}"
+            placeholder="6位验证码"
+            bindinput="updateCode"
+            bindfocus="onCodeFocused"
+            bindblur="onCodeBlur" />
+          <button
+            class="send-button {{countdown > 0 || isSending ? 'disabled' : ''}}"
+            disabled="{{countdown > 0 || isSending}}"
+            bindtap="sendEmailCode">
+            {{countdown > 0 ? countdown + 's' : (isSending ? '发送中' : '发送')}}
+          </button>
+        </view>
+        <text wx:if="{{devCode}}" class="dev-tip">本地验证码已自动填入</text>
+      </view>
+
+      <button
+        class="submit-button {{isBinding ? 'disabled' : ''}}"
+        disabled="{{isBinding}}"
+        bindtap="bindEmail">
+        {{isBinding ? '绑定中' : '确认绑定'}}
+      </button>
+    </view>
+  </view>
+</view>
