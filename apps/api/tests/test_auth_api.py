@@ -62,6 +62,8 @@ def test_wechat_dev_login_returns_token_and_me(auth_client: TestClient) -> None:
     token = body["data"]["access_token"]
     user_id = body["data"]["user"]["id"]
     assert body["data"]["token_type"] == "bearer"
+    assert body["data"]["expires_in"] > 0
+    assert body["data"]["expires_at"]
     assert body["data"]["user"]["display_name"] == "开发用户"
 
     me_response = auth_client.get(

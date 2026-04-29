@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config.settings import get_settings
 from app.core.database import get_session
 from app.core.errors import AppError
-from app.core.security import create_access_token
+from app.core.security import issue_access_token
 from app.infrastructure.wechat import WechatSession, exchange_code_for_session
 from app.interfaces.http.dependencies import CurrentUser, get_current_user
 from app.interfaces.http.v1.auth.schemas import TokenResponse, UserSummary, WechatLoginRequest
@@ -79,17 +79,17 @@ async def wechat_login(
     )
     await session.commit()
 
-    settings = get_settings()
-    token = create_access_token(
+    token = issue_access_token(
         subject=result.user.id,
         extra_claims={"channel": "wechat"},
     )
     data = TokenResponse(
-        access_token=token,
-        expires_in=settings.access_token_expire_minutes * 60,
+        access_token=token.token,
+        expires_in=token.expires_in,
+        expires_at=token.expires_at,
         user=build_user_summary(result.user),
     )
-    return success_response(data.model_dump(), request_id=get_request_id(request))
+    return success_response(data.model_dump(mode="json"), request_id=get_request_id(request))
 
 
 @router.get("/me")

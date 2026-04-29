@@ -80,6 +80,31 @@
 Authorization: Bearer <token>
 ```
 
+令牌响应：
+
+```json
+{
+  "access_token": "<jwt>",
+  "token_type": "bearer",
+  "expires_in": 7200,
+  "expires_at": "2026-04-29T16:30:00Z",
+  "user": {
+    "id": 1,
+    "display_name": "用户",
+    "avatar_url": null,
+    "status": "active"
+  }
+}
+```
+
+客户端缓存规则：
+
+- 客户端可以缓存访问令牌，但缓存内容必须包含 `expires_at`；
+- 客户端启动时不能只判断本地是否存在 token，应先检查本地过期时间，再调用 `/api/v1/auth/me` 确认后端仍接受该 token；
+- `/auth/me` 或业务接口返回 `401` 且错误码为 `ACCESS_TOKEN_EXPIRED`、`INVALID_ACCESS_TOKEN`、`AUTH_USER_NOT_FOUND` 时，客户端必须清理认证相关缓存；
+- 小程序第一版不引入 refresh token。访问令牌过期后重新执行 `wx.login` 和 `/auth/wechat/login`，重新签发访问令牌；
+- 清理认证缓存不等于清空全部本地存储，配置、非敏感草稿和页面偏好不应被一起删除。
+
 ### 权限
 
 接口不直接判断 `identity_code >= 1` 这类数字大小。
@@ -147,6 +172,8 @@ Authorization: Bearer <token>
 - 第一版不支持“网页端先注册普通账号，再绑定微信”的流程；
 - 第一个 `999` 可以通过部署初始化命令创建本地账号，不要求已有微信身份；
 - `/auth/wechat/login` 生产环境必须使用微信 `code2session`；本地开发和测试环境可以使用受控 `dev_openid`，生产环境必须禁用；
+- `/auth/wechat/login` 必须返回 `expires_in` 和 `expires_at`，小程序据此判断本地 token 是否已经明显过期；
+- `/auth/me` 是客户端启动态校验接口，不能被页面层绕过成本地 token 存在性判断；
 - 邮箱验证码 5 分钟有效；
 - 同一邮箱 1 小时最多发送 10 次；
 - 每次重新请求至少间隔 1 分钟；
@@ -160,7 +187,7 @@ Authorization: Bearer <token>
 - 已完成唯一 `999` 初始化服务；
 - 已完成微信身份登录创建或复用用户主体的服务层逻辑；
 - 已完成已登录微信用户绑定邮箱并生成待设置密码本地账号的服务层逻辑；
-- 已完成 `/api/v1/auth/wechat/login` 和 `/api/v1/auth/me` 的 HTTP 接口；
+- 已完成 `/api/v1/auth/wechat/login` 和 `/api/v1/auth/me` 的 HTTP 接口，登录响应已返回令牌过期信息；
 - 邮箱验证码、首次设置密码、邮箱密码登录和密码重置接口仍待实现。
 
 ### 组织与成员
