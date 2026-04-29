@@ -1,5 +1,8 @@
 let authInProgress = false;
 const TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'refresh_token';
+const TOKEN_EXPIRES_AT_KEY = 'auth_token_expires_at';
+const REFRESH_EXPIRES_AT_KEY = 'refresh_token_expires_at';
 const USER_INFO_KEY = 'userInfo';
 const USER_PROFILE_KEY = 'userProfile'; // 新增:存储完整用户信息的键
 const LAST_CLEAN_TIME_KEY = 'last_clean_time';
@@ -14,10 +17,55 @@ function getAuthToken() {
 }
 
 /**
+ * 获取新版认证接口配置
+ */
+function getAuthConfig() {
+  const currentConfig = wx.getStorageSync('config') || config || {};
+  return currentConfig.auth || {};
+}
+
+/**
+ * 判断本地记录的过期时间是否已经失效
+ */
+function isExpired(expiresAt) {
+  if (!expiresAt) return true;
+  const expiresTime = new Date(expiresAt).getTime();
+  if (!expiresTime) return true;
+  return Date.now() >= expiresTime - 30 * 1000;
+}
+
+/**
+ * 清理认证相关缓存
+ */
+function clearAuthCache() {
+  wx.removeStorageSync(TOKEN_KEY);
+  wx.removeStorageSync(REFRESH_TOKEN_KEY);
+  wx.removeStorageSync(TOKEN_EXPIRES_AT_KEY);
+  wx.removeStorageSync(REFRESH_EXPIRES_AT_KEY);
+  wx.removeStorageSync(USER_INFO_KEY);
+  wx.removeStorageSync(USER_PROFILE_KEY);
+}
+
+/**
  * 存储令牌到本地缓存
  */
-function storeAuthToken(token) {
+function storeAuthToken(authData) {
+  const token = typeof authData === 'string' ? authData : authData.access_token;
+  if (!token) {
+    console.warn('[Auth] 后端响应缺少访问令牌');
+    return;
+  }
+
   wx.setStorageSync(TOKEN_KEY, token);
+  if (authData.refresh_token) {
+    wx.setStorageSync(REFRESH_TOKEN_KEY, authData.refresh_token);
+  }
+  if (authData.expires_at) {
+    wx.setStorageSync(TOKEN_EXPIRES_AT_KEY, authData.expires_at);
+  }
+  if (authData.refresh_expires_at) {
+    wx.setStorageSync(REFRESH_EXPIRES_AT_KEY, authData.refresh_expires_at);
+  }
   wx.setStorageSync(USER_INFO_KEY, { logged: true });
   
   // 新增:获取到令牌后立即请求用户信息
@@ -32,13 +80,14 @@ function fetchAndStoreUserProfile(token) {
   
   // 确保 config 是最新的
   const currentConfig = wx.getStorageSync('config');
-  if (!currentConfig || !currentConfig.users || !currentConfig.users.profile) {
+  const authConfig = getAuthConfig();
+  if (!authConfig.me && (!currentConfig || !currentConfig.users || !currentConfig.users.profile)) {
     console.error('[Auth] 配置信息不完整,无法获取用户信息');
     return;
   }
 
   wx.request({
-    url: currentConfig.users.profile,
+    url: authConfig.me || currentConfig.users.profile,
     method: "GET",
     header: {
       "Content-Type": "application/json",
@@ -46,7 +95,32 @@ function fetchAndStoreUserProfile(token) {
     },
     success: (res) => {
       console.log('[Auth] 用户信息响应:', res);
-      if (res.statusCode === 200 && res.data.data) {
+      if (res.statusCode === 200 && res.data.success && res.data.data && res.data.data.user) {
+        const user = res.data.data.user;
+        const userProfile = {
+          id: user.id,
+          profile_photo: user.avatar_url || '',
+          real_name: user.display_name || '',
+          phone_num: '',
+          qq: '',
+          student_id: '',
+          college: '',
+          grade: '',
+          motto: '',
+          score: 0,
+          role: 0,
+          status: user.status,
+        };
+
+        // 存储到缓存
+        wx.setStorageSync(USER_PROFILE_KEY, userProfile);
+        console.log('[Auth] 用户信息已缓存:', userProfile);
+
+        // 触发自定义事件通知其他页面更新
+        if (typeof app.onUserProfileUpdated === 'function') {
+          app.onUserProfileUpdated(userProfile);
+        }
+      } else if (res.statusCode === 200 && res.data.data) {
         const info = res.data.data;
         const userProfile = {
           profile_photo: info.profile_photo || '',
@@ -60,15 +134,10 @@ function fetchAndStoreUserProfile(token) {
           score: info.score || 0,
           role: info.role || 0,
         };
-        
-        // 存储到缓存
         wx.setStorageSync(USER_PROFILE_KEY, userProfile);
-        console.log('[Auth] 用户信息已缓存:', userProfile);
-        
-        // 触发自定义事件通知其他页面更新
-        if (typeof app.onUserProfileUpdated === 'function') {
-          app.onUserProfileUpdated(userProfile);
-        }
+      } else if (res.statusCode === 401) {
+        console.warn('[Auth] 访问令牌已失效,清理认证缓存');
+        clearAuthCache();
       } else {
         console.warn('[Auth] 获取用户信息失败:', res.data);
       }
@@ -87,6 +156,70 @@ function getUserProfile() {
 }
 
 /**
+ * 调用后端校验当前 access token
+ */
+function validateAccessToken(token) {
+  const authConfig = getAuthConfig();
+  if (!authConfig.me) {
+    return Promise.resolve(token);
+  }
+
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: authConfig.me,
+      method: 'GET',
+      header: {
+        'Authorization': `Bearer ${token}`,
+      },
+      success: (res) => {
+        if (res.statusCode === 200 && res.data.success) {
+          fetchAndStoreUserProfile(token);
+          resolve(token);
+        } else {
+          reject(res.data && res.data.error ? res.data.error.code : 'TOKEN_INVALID');
+        }
+      },
+      fail: () => reject('NETWORK_ERROR')
+    });
+  });
+}
+
+/**
+ * 使用 refresh token 续签访问令牌
+ */
+function refreshAccessToken() {
+  const authConfig = getAuthConfig();
+  const refreshToken = wx.getStorageSync(REFRESH_TOKEN_KEY);
+  const refreshExpiresAt = wx.getStorageSync(REFRESH_EXPIRES_AT_KEY);
+
+  if (!authConfig.refresh || !refreshToken || isExpired(refreshExpiresAt)) {
+    clearAuthCache();
+    return Promise.reject('REFRESH_TOKEN_UNAVAILABLE');
+  }
+
+  return new Promise((resolve, reject) => {
+    wx.request({
+      url: authConfig.refresh,
+      method: 'POST',
+      data: { refresh_token: refreshToken },
+      header: {
+        'Content-Type': 'application/json',
+      },
+      success: (res) => {
+        if (res.statusCode === 200 && res.data.success && res.data.data) {
+          storeAuthToken(res.data.data);
+          resolve(res.data.data.access_token);
+        } else {
+          clearAuthCache();
+          reject(res.data && res.data.error ? res.data.error.code : 'REFRESH_FAILED');
+        }
+      },
+      fail: () => reject('NETWORK_ERROR')
+    });
+  });
+}
+
+/**
  * 检查并执行24小时缓存清理
  */
 function checkAndCleanCache() {
@@ -99,8 +232,11 @@ function checkAndCleanCache() {
     
     // 获取需要保留的数据
     const token = wx.getStorageSync(TOKEN_KEY);
+    const expiresAt = wx.getStorageSync(TOKEN_EXPIRES_AT_KEY);
     const userInfo = wx.getStorageSync(USER_INFO_KEY);
     const userProfile = wx.getStorageSync(USER_PROFILE_KEY);
+    const refreshToken = wx.getStorageSync(REFRESH_TOKEN_KEY);
+    const refreshExpiresAt = wx.getStorageSync(REFRESH_EXPIRES_AT_KEY);
     const configData = wx.getStorageSync('config');
     
     // 清理所有缓存
@@ -108,6 +244,9 @@ function checkAndCleanCache() {
     
     // 恢复需要保留的数据
     if (token) wx.setStorageSync(TOKEN_KEY, token);
+    if (expiresAt) wx.setStorageSync(TOKEN_EXPIRES_AT_KEY, expiresAt);
+    if (refreshToken) wx.setStorageSync(REFRESH_TOKEN_KEY, refreshToken);
+    if (refreshExpiresAt) wx.setStorageSync(REFRESH_EXPIRES_AT_KEY, refreshExpiresAt);
     if (userInfo) wx.setStorageSync(USER_INFO_KEY, userInfo);
     if (userProfile) wx.setStorageSync(USER_PROFILE_KEY, userProfile);
     if (configData) wx.setStorageSync('config', configData);
@@ -133,20 +272,35 @@ const checkTokenValidity = () => {
     }
     
     const token = getAuthToken();
+    const expiresAt = wx.getStorageSync(TOKEN_EXPIRES_AT_KEY);
     if (token) {
-      console.log('[Auth] 发现本地令牌', token);
-      console.log('[Auth] 本地令牌', token)
-      // 检查是否已有用户信息,没有则重新获取
-      const userProfile = getUserProfile();
-      if (!userProfile || !userProfile.real_name) {
-        console.log('[Auth] 用户信息不完整,重新获取');
-        fetchAndStoreUserProfile(token);
+      console.log('[Auth] 发现本地令牌');
+      if (isExpired(expiresAt)) {
+        console.log('[Auth] access token 已过期,尝试 refresh');
+        refreshAccessToken().then(resolve).catch(() => {
+          console.log('[Auth] refresh 不可用,重新走微信登录');
+          triggerAuthFlow(resolve, reject);
+        });
+        return;
       }
-      
-      resolve(token);
+
+      validateAccessToken(token).then((validToken) => {
+        const userProfile = getUserProfile();
+        if (!userProfile || !userProfile.real_name) {
+          console.log('[Auth] 用户信息不完整,重新获取');
+          fetchAndStoreUserProfile(validToken);
+        }
+        resolve(validToken);
+      }).catch(() => {
+        refreshAccessToken().then(resolve).catch(() => {
+          triggerAuthFlow(resolve, reject);
+        });
+      });
     } else {
-      console.log('[Auth] 本地无令牌,需要授权');
-      triggerAuthFlow(resolve, reject);
+      console.log('[Auth] 本地无 access token,尝试 refresh 或重新授权');
+      refreshAccessToken().then(resolve).catch(() => {
+        triggerAuthFlow(resolve, reject);
+      });
     }
   });
 };
@@ -208,26 +362,35 @@ const handleUserAuth = (confirmed, resolve, reject) => {
       const currentConfig = wx.getStorageSync('config');
       
       wx.request({
-        url: currentConfig.users.login,
+        url: currentConfig.auth && currentConfig.auth.wechatLogin ? currentConfig.auth.wechatLogin : currentConfig.users.login,
         method: 'POST',
         data: { code: res.code },
+        header: {
+          'Content-Type': 'application/json',
+        },
         success: (response) => {
           console.log('[Auth] 后端响应:', response.data);
-          if (response.statusCode === 200 && response.data.code === 200) {
-            const token = response.data.data.token;
-            console.log('[Auth] 后端返回令牌', token);
+          if (response.statusCode === 200 && response.data.success && response.data.data) {
+            const authData = response.data.data;
+            console.log('[Auth] 新版后端返回令牌');
             
             // 存储令牌(会自动触发获取用户信息)
-            storeAuthToken(token);
+            storeAuthToken(authData);
             
             authInProgress = false;
             
-            if (resolve) resolve(token);
+            if (resolve) resolve(authData.access_token);
             
             // 延时重定向
             setTimeout(() => {
               wx.redirectTo({ url: '/pages/index/index' });
             }, 100);
+          } else if (response.statusCode === 200 && response.data.code === 200) {
+            const token = response.data.data.token;
+            console.log('[Auth] 旧版后端返回令牌');
+            storeAuthToken(token);
+            authInProgress = false;
+            if (resolve) resolve(token);
           } else {
             console.warn('[Auth] 后端返回错误:', response.data);
             authInProgress = false;

@@ -63,7 +63,11 @@ App({
    * 清除本地令牌和用户信息
    */
   removeAuthToken: function() {
-    wx.removeStorageSync(TOKEN_KEY);
-    wx.removeStorageSync(USER_INFO_KEY);
+    wx.removeStorageSync('auth_token');
+    wx.removeStorageSync('refresh_token');
+    wx.removeStorageSync('auth_token_expires_at');
+    wx.removeStorageSync('refresh_token_expires_at');
+    wx.removeStorageSync('userInfo');
+    wx.removeStorageSync('userProfile');
   }
 })

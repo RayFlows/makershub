@@ -1,9 +1,17 @@
 var host = "https://dev-api.makershub.cn"
 var minIO = "https://dev-s3.makershub.cn"
+var apiV1 = "http://127.0.0.1:8000/api/v1"
 var config = {
   host,
+  apiV1,
   minIO,
   public_resources: minIO + "/makershub-public",
+  auth: {
+    wechatLogin: apiV1 + "/auth/wechat/login",
+    refresh: apiV1 + "/auth/refresh",
+    logout: apiV1 + "/auth/logout",
+    me: apiV1 + "/auth/me",
+  },
   users: {
     login: host + "/users/wx-login",
     profile: host + "/users/profile",

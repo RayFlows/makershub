@@ -14,4 +14,17 @@
 
 微信开发者工具可以直接打开 `apps/miniapp` 子目录，不需要打开整个 monorepo。
 
-当前 `config.js` 仍指向旧的开发接口地址，后续需要按新后端 API 契约改造请求封装和页面数据适配。第一阶段仍以网页端和 API 验证核心业务逻辑，小程序在接口稳定后再逐步接入。
+当前只有认证入口先接入新版后端：
+
+- `auth.wechatLogin`：`/api/v1/auth/wechat/login`；
+- `auth.refresh`：`/api/v1/auth/refresh`；
+- `auth.logout`：`/api/v1/auth/logout`；
+- `auth.me`：`/api/v1/auth/me`。
+
+其他业务页面仍主要指向旧的开发接口地址，后续需要按新后端 API 契约逐步改造请求封装和页面数据适配。
+
+本地微信开发者工具调试时，需要关闭“校验合法域名”，并保证本地 API 容器已经读取 `.env` 中的 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET`：
+
+```bash
+sudo docker compose --env-file .env -f infra/docker/compose.dev.yml up -d --force-recreate api
+```
