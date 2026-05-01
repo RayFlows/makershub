@@ -12,17 +12,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from fastapi import Depends, Security
+from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.errors import AppError
+from app.core.logging import logger
 from app.core.permissions.service import check_user_permission
 from app.core.security import decode_access_token
+from app.core.security.middleware import get_client_ip
+from app.modules.audit.service import AuditLogEntry, record_audit_log
 from app.modules.identity.models import User
 from app.modules.identity.repository import IdentityRepository
 from app.modules.identity.service import validate_auth_session
+from app.shared.request_context import get_request_id
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -125,6 +129,7 @@ def require_permission(
     """
 
     async def dependency(
+        request: Request,
         current: CurrentUser = Depends(get_current_user),
         session: AsyncSession = Depends(get_session),
     ) -> CurrentUser:
@@ -138,6 +143,38 @@ def require_permission(
             scope_id=scope_id,
         )
         if not decision.allowed:
+            try:
+                await record_audit_log(
+                    session,
+                    AuditLogEntry(
+                        actor_id=current.user.id,
+                        action="permission.denied",
+                        target_type="permission",
+                        target_id=permission_code,
+                        result="denied",
+                        risk_level="medium",
+                        ip_address=get_client_ip(request),
+                        user_agent=request.headers.get("user-agent"),
+                        request_id=get_request_id(request),
+                        reason=decision.reason,
+                        extra={
+                            "method": request.method,
+                            "path": request.url.path,
+                            "permission_code": permission_code,
+                            "scope_type": scope_type,
+                            "scope_id": scope_id,
+                        },
+                    ),
+                )
+                await session.commit()
+            except Exception:
+                # 权限拒绝不能因为审计写入失败而变成放行；记录运行日志后继续返回 403。
+                await session.rollback()
+                logger.exception(
+                    "权限拒绝审计写入失败 | user_id={} permission_code={}",
+                    current.user.id,
+                    permission_code,
+                )
             raise AppError(
                 "PERMISSION_DENIED",
                 "当前用户无权执行该操作",

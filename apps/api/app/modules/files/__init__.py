@@ -7,7 +7,19 @@
 """
 
 from app.modules.files.models import FileObject
-from app.modules.files.service import FileMetadataInput, build_object_key, register_file_metadata
+from app.modules.files.service import (
+    FileMetadataInput,
+    FileUploadIntentInput,
+    build_object_key,
+    create_file_upload_intent,
+    register_file_metadata,
+)
 
-__all__ = ["FileMetadataInput", "FileObject", "build_object_key", "register_file_metadata"]
-
+__all__ = [
+    "FileMetadataInput",
+    "FileObject",
+    "FileUploadIntentInput",
+    "build_object_key",
+    "create_file_upload_intent",
+    "register_file_metadata",
+]

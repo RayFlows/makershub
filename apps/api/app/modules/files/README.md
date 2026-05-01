@@ -13,12 +13,14 @@
 - `files` ORM 模型；
 - `build_object_key(...)` 统一对象 key 生成；
 - `register_file_metadata(...)` 文件元数据登记；
+- `create_file_upload_intent(...)` 统一上传意图和预签名 URL；
+- 上传用途、Content-Type、文件大小和危险后缀校验；
 - `FileRepository.mark_deleted(...)` 删除状态标记。
 
 ## 后续接入
 
-- 统一上传接口；
-- 预签名 URL；
+- 上传完成确认接口；
+- 对象实际大小、hash 和 Content-Type 复核；
 - 临时文件清理任务；
 - 文件删除补偿和审计；
 - 项目材料、头像、资源附件等业务表统一引用 `file_id`。

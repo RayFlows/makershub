@@ -2,8 +2,8 @@
 """
 文件元数据服务
 
-本服务先提供稳定的对象 key 生成和元数据登记能力。真正的上传入口后续会在这里
-协调 MinIO 客户端、权限校验和审计记录，业务模块不应自己拼对象存储路径。
+本服务提供稳定的对象 key 生成、上传意图创建和元数据登记能力。业务模块只应引用
+file_id 并补充自己的业务归属校验，不应自己拼对象存储路径或绕过上传安全策略。
 """
 
 from __future__ import annotations
@@ -12,17 +12,33 @@ import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import PurePath
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config.settings import get_settings
+from app.core.errors import AppError
+from app.infrastructure.minio import create_minio_client
 from app.modules.files.models import FileObject
 from app.modules.files.repository import FileRepository
 from app.shared.time import utc_now
 
 SAFE_FILENAME_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
+UPLOAD_URL_EXPIRES_IN_SECONDS = 15 * 60
+BLOCKED_UPLOAD_SUFFIXES = {
+    ".bat",
+    ".cmd",
+    ".com",
+    ".exe",
+    ".js",
+    ".msi",
+    ".ps1",
+    ".scr",
+    ".sh",
+    ".vbs",
+}
 
 
 @dataclass(frozen=True)
@@ -39,6 +55,38 @@ class FileMetadataInput:
     sha256: str | None = None
     visibility: str = "private"
     storage_provider: str = "minio"
+    status: str = "active"
+
+
+@dataclass(frozen=True)
+class UploadPurposePolicy:
+    """上传用途安全策略。"""
+
+    purpose: str
+    bucket_name: str
+    allowed_content_types: tuple[str, ...]
+    max_size_bytes: int
+    visibility: str = "private"
+
+
+@dataclass(frozen=True)
+class FileUploadIntentInput:
+    """创建上传意图的输入参数。"""
+
+    purpose: str
+    original_filename: str
+    content_type: str
+    size_bytes: int
+
+
+@dataclass(frozen=True)
+class FileUploadIntentResult:
+    """上传意图创建结果。"""
+
+    file_object: FileObject
+    upload_url: str
+    expires_in: int
+    method: str = "PUT"
 
 
 def normalize_filename(filename: str | None) -> str:
@@ -61,6 +109,102 @@ def normalize_filename(filename: str | None) -> str:
     ascii_stem = SAFE_FILENAME_PATTERN.sub("_", ascii_stem).strip("._-") or "file"
     ascii_suffix = SAFE_FILENAME_PATTERN.sub("", parsed.suffix.lower())
     return f"{ascii_stem}{ascii_suffix}"
+
+
+def normalize_upload_purpose(purpose: str) -> str:
+    """规范化上传用途。"""
+
+    normalized = purpose.strip().lower()
+    normalized = SAFE_FILENAME_PATTERN.sub("_", normalized).strip("._-")
+    if not normalized:
+        raise AppError("FILE_PURPOSE_REQUIRED", "文件用途不能为空", status_code=422)
+    return normalized
+
+
+def normalize_content_type(content_type: str) -> str:
+    """规范化 Content-Type。"""
+
+    normalized = content_type.split(";", maxsplit=1)[0].strip().lower()
+    if "/" not in normalized or len(normalized) > 128:
+        raise AppError("FILE_CONTENT_TYPE_INVALID", "文件 Content-Type 不合法", status_code=422)
+    return normalized
+
+
+def get_upload_policies() -> dict[str, UploadPurposePolicy]:
+    """读取当前环境下允许的上传用途策略。"""
+
+    settings = get_settings()
+    return {
+        "avatar": UploadPurposePolicy(
+            purpose="avatar",
+            bucket_name=settings.minio_avatar_bucket,
+            allowed_content_types=("image/jpeg", "image/png", "image/webp"),
+            max_size_bytes=2 * 1024 * 1024,
+            visibility="private",
+        ),
+        "project_material": UploadPurposePolicy(
+            purpose="project_material",
+            bucket_name=settings.minio_project_bucket,
+            allowed_content_types=("application/pdf", "image/jpeg", "image/png", "application/zip"),
+            max_size_bytes=20 * 1024 * 1024,
+        ),
+        "resource_attachment": UploadPurposePolicy(
+            purpose="resource_attachment",
+            bucket_name=settings.minio_resource_bucket,
+            allowed_content_types=("application/pdf", "image/jpeg", "image/png"),
+            max_size_bytes=10 * 1024 * 1024,
+        ),
+        "temp": UploadPurposePolicy(
+            purpose="temp",
+            bucket_name=settings.minio_temp_bucket,
+            allowed_content_types=("application/pdf", "image/jpeg", "image/png"),
+            max_size_bytes=5 * 1024 * 1024,
+        ),
+    }
+
+
+def get_upload_policy(purpose: str) -> UploadPurposePolicy:
+    """根据用途读取上传安全策略。"""
+
+    normalized_purpose = normalize_upload_purpose(purpose)
+    policy = get_upload_policies().get(normalized_purpose)
+    if policy is None:
+        raise AppError("FILE_PURPOSE_UNSUPPORTED", "当前文件用途暂未开放上传", status_code=422)
+    return policy
+
+
+def validate_upload_intent(payload: FileUploadIntentInput) -> tuple[UploadPurposePolicy, str, str]:
+    """
+    校验上传意图。
+
+    统一上传入口必须先校验用途、文件名、大小和 Content-Type，业务模块不能绕过这里
+    直接向对象存储写入任意文件。
+    """
+
+    policy = get_upload_policy(payload.purpose)
+    normalized_content_type = normalize_content_type(payload.content_type)
+    normalized_filename = normalize_filename(payload.original_filename)
+    suffix = PurePath(normalized_filename).suffix.lower()
+
+    if payload.size_bytes <= 0:
+        raise AppError("FILE_SIZE_INVALID", "文件大小必须大于 0", status_code=422)
+    if payload.size_bytes > policy.max_size_bytes:
+        raise AppError(
+            "FILE_SIZE_EXCEEDED",
+            "文件大小超过当前用途限制",
+            status_code=413,
+            details={"max_size_bytes": policy.max_size_bytes},
+        )
+    if normalized_content_type not in policy.allowed_content_types:
+        raise AppError(
+            "FILE_CONTENT_TYPE_UNSUPPORTED",
+            "当前文件类型不允许上传",
+            status_code=422,
+            details={"allowed_content_types": list(policy.allowed_content_types)},
+        )
+    if suffix in BLOCKED_UPLOAD_SUFFIXES:
+        raise AppError("FILE_SUFFIX_BLOCKED", "当前文件后缀不允许上传", status_code=422)
+    return policy, normalized_filename, normalized_content_type
 
 
 def build_object_key(
@@ -120,6 +264,53 @@ async def register_file_metadata(
         content_type=metadata.content_type,
         size_bytes=metadata.size_bytes,
         sha256=metadata.sha256,
-        status="active",
+        status=metadata.status,
     )
     return await repository.add(file_object)
+
+
+async def create_file_upload_intent(
+    session: AsyncSession,
+    *,
+    owner_user_id: int,
+    payload: FileUploadIntentInput,
+) -> FileUploadIntentResult:
+    """
+    创建预签名上传意图。
+
+    该函数只开放 PUT 到指定对象 key 的短期 URL，并先登记 pending_upload 文件元数据。
+    真正的业务归属和审核仍由项目、资源、头像等业务模块引用 file_id 后继续处理。
+    """
+
+    policy, safe_filename, normalized_content_type = validate_upload_intent(payload)
+    object_key = build_object_key(
+        purpose=policy.purpose,
+        owner_user_id=owner_user_id,
+        filename=safe_filename,
+    )
+    file_object = await register_file_metadata(
+        session,
+        FileMetadataInput(
+            owner_user_id=owner_user_id,
+            purpose=policy.purpose,
+            visibility=policy.visibility,
+            bucket=policy.bucket_name,
+            object_key=object_key,
+            original_filename=payload.original_filename,
+            content_type=normalized_content_type,
+            size_bytes=payload.size_bytes,
+            status="pending_upload",
+        ),
+    )
+
+    client = create_minio_client()
+    upload_url = client.presigned_put_object(
+        policy.bucket_name,
+        object_key,
+        expires=timedelta(seconds=UPLOAD_URL_EXPIRES_IN_SECONDS),
+    )
+    return FileUploadIntentResult(
+        file_object=file_object,
+        upload_url=upload_url,
+        expires_in=UPLOAD_URL_EXPIRES_IN_SECONDS,
+    )

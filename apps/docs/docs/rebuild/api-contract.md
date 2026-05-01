@@ -181,7 +181,9 @@ Authorization: Bearer <token>
 当前实现：
 
 - 已完成 `files` 元数据表、对象 key 生成和元数据登记服务；
-- 实际上传接口、预签名 URL 和业务文件引用仍待业务模块接入时开放。
+- 已开放 `POST /api/v1/files/upload-intents` 创建短期预签名 PUT URL；
+- 上传意图会统一校验 `purpose`、`content_type`、`size_bytes` 和危险后缀；
+- 当前创建的文件状态为 `pending_upload`，上传完成复核、对象 hash 校验和业务文件引用仍待业务模块接入时开放。
 
 ## 第一阶段核心接口
 

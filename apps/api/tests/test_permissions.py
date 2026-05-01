@@ -8,10 +8,16 @@
 
 from __future__ import annotations
 
-import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+import asyncio
+from collections.abc import AsyncIterator
+from pathlib import Path
 
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from app.core.database import get_session
 from app.core.database.base import Base
 from app.core.permissions import (
     PermissionPoint,
@@ -26,7 +32,9 @@ from app.core.permissions.service import (
     get_user_permission_summary,
     sync_registered_permissions,
 )
-from app.modules.identity.models import User
+from app.main import create_app
+from app.modules.audit.models import AuditLog
+from app.modules.identity.models import AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount
 from app.modules.organization.models import Position, UserPosition
 
 
@@ -131,6 +139,63 @@ async def test_role_grant_controls_permission_codes() -> None:
     assert denied.allowed is False
 
     await engine.dispose()
+
+
+def test_permission_denied_dependency_writes_audit_log(tmp_path: Path) -> None:
+    """HTTP 权限依赖拒绝访问时应写入审计日志。"""
+
+    # 显式引用模型，确保 Base.metadata 收集认证、权限、审计和组织相关表。
+    _ = (AuthSession, EmailVerificationCode, LocalAccount, WechatAccount, AuditLog, Position, UserPosition)
+
+    database_path = tmp_path / "permission_denied.db"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{database_path}")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def prepare_database() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+
+    async def override_get_session() -> AsyncIterator[AsyncSession]:
+        async with session_factory() as session:
+            yield session
+
+    async def load_audit_logs() -> list[AuditLog]:
+        async with session_factory() as session:
+            result = await session.scalars(select(AuditLog).order_by(AuditLog.id))
+            return list(result)
+
+    asyncio.run(prepare_database())
+    app = create_app()
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        with TestClient(app) as client:
+            login_response = client.post(
+                "/api/v1/auth/wechat/login",
+                json={"dev_openid": "permission_denied_user"},
+            )
+            access_token = login_response.json()["data"]["access_token"]
+            user_id = login_response.json()["data"]["user"]["id"]
+
+            denied_response = client.get(
+                "/api/v1/permissions",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    logs = asyncio.run(load_audit_logs())
+    asyncio.run(engine.dispose())
+
+    assert denied_response.status_code == 403
+    assert denied_response.json()["error"]["code"] == "PERMISSION_DENIED"
+    assert len(logs) == 1
+    assert logs[0].actor_id == user_id
+    assert logs[0].action == "permission.denied"
+    assert logs[0].result == "denied"
+    assert logs[0].target_type == "permission"
+    assert logs[0].target_id == "system.admin.access"
+    assert logs[0].extra["path"] == "/api/v1/permissions"
 
 
 @pytest.mark.asyncio

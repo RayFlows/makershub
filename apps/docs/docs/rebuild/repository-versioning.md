@@ -121,10 +121,11 @@ RayFlows/makershub
 - 执行后端 ruff 检查；
 - 执行后端 pytest；
 - 生成 Node 和 Python CycloneDX SBOM，并作为构建产物上传；
+- 构建 API、成员网页端、后台管理端和文档站 Docker 镜像，并对镜像执行高危及以上漏洞扫描；
 - 校验 Docker Compose 配置；
 - 校验 Docker Compose YAML。
 
-Dependabot 已配置 npm、uv 和 GitHub Actions 依赖更新。依赖更新进入 PR 后仍必须通过上述 CI。
+Dependabot 已配置 npm、uv、Docker 和 GitHub Actions 依赖更新。依赖更新进入 PR 后仍必须通过上述 CI。
 
 后续新增数据库迁移、业务模块、前端页面和部署脚本时，应把对应检查同步加入 CI。
 

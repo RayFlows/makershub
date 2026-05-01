@@ -77,6 +77,41 @@ jobs:
           mkdir -p sbom
           uv export --preview-features sbom-export --project apps/api --extra dev --format cyclonedx1.5 -o sbom/makershub-api.cdx.json >/dev/null
 
+      - name: Build Docker images for vulnerability scan
+        run: |
+          docker build -f infra/docker/api.Dockerfile -t makershub-api:ci .
+          docker build -f infra/docker/web.Dockerfile -t makershub-web:ci .
+          docker build -f infra/docker/admin.Dockerfile -t makershub-admin:ci .
+          docker build -f infra/docker/docs.Dockerfile -t makershub-docs:ci .
+
+      - name: Scan API Docker image
+        uses: anchore/scan-action@v7
+        with:
+          image: makershub-api:ci
+          fail-build: true
+          severity-cutoff: high
+
+      - name: Scan web Docker image
+        uses: anchore/scan-action@v7
+        with:
+          image: makershub-web:ci
+          fail-build: true
+          severity-cutoff: high
+
+      - name: Scan admin Docker image
+        uses: anchore/scan-action@v7
+        with:
+          image: makershub-admin:ci
+          fail-build: true
+          severity-cutoff: high
+
+      - name: Scan docs Docker image
+        uses: anchore/scan-action@v7
+        with:
+          image: makershub-docs:ci
+          fail-build: true
+          severity-cutoff: high
+
       - name: Validate Docker Compose
         run: docker compose -f infra/docker/compose.dev.yml config
 
