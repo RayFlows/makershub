@@ -84,7 +84,7 @@ jobs:
         run: npx --yes yaml-lint infra/docker/compose.dev.yml
 
       - name: Upload SBOM artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: makershub-sbom
           path: sbom/*.cdx.json
