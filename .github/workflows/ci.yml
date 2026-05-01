@@ -49,7 +49,7 @@ jobs:
           pnpm dlx @cyclonedx/cyclonedx-npm --output-file sbom/makershub-node.cdx.json --output-format json
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
