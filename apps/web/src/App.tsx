@@ -7,8 +7,6 @@ import {
   Descriptions,
   Form,
   Input,
-  Layout,
-  Menu,
   Space,
   Spin,
   Statistic,
@@ -503,88 +501,131 @@ function MemberShell({
   onLogout: () => void;
 }) {
   return (
-    <Layout className="app-shell">
-      <Layout.Sider width={252} className="side-nav">
-        <div className="brand">
-          <div className="auth-mark small">SC</div>
-          <div>
-            <strong>开源硬件协会</strong>
-            <span>SCUMAKER</span>
+    <div className="app-shell">
+      <aside className="sidebar">
+        <section className="surface panel brand-panel">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">SCUMAKER</p>
+              <h1 className="headline">开源硬件协会</h1>
+            </div>
+            <div className="auth-mark small">SC</div>
           </div>
-        </div>
-        <Menu mode="inline" defaultSelectedKeys={["profile"]} items={menuItems} />
-      </Layout.Sider>
-      <Layout>
-        <Layout.Header className="top-bar">
-          <div className="top-title">
-            <CalendarClock size={18} />
-            <span>协会成员端</span>
+          <p className="muted">协会成员端工作台</p>
+        </section>
+
+        <section className="surface panel account-panel">
+          <div className="panel-header">
+            <div>
+              <p className="eyebrow">Account</p>
+              <h2 className="headline">{user.display_name}</h2>
+            </div>
+            <span className="badge">{user.status}</span>
           </div>
-          <Space size={12}>
-            <Tag className="channel-tag">{channel || "active"}</Tag>
-            <Button icon={<LogOut size={16} />} onClick={onLogout}>
+          <p className="muted">{user.email || "未绑定邮箱"}</p>
+          <div className="button-row top-gap">
+            <Button className="button-ghost logout-button" icon={<LogOut size={16} />} onClick={onLogout}>
               退出
             </Button>
-          </Space>
-        </Layout.Header>
-        <Layout.Content className="content">
-          <section className="profile-hero">
-            <div className="profile-header">
-              <Avatar size={72} src={user.avatar_url || undefined} className="profile-avatar">
-                {user.display_name.slice(0, 1)}
-              </Avatar>
-              <div>
-                <Typography.Title level={1}>{user.display_name}</Typography.Title>
-                <Typography.Text type="secondary">{user.email || "未绑定邮箱"}</Typography.Text>
-              </div>
+          </div>
+        </section>
+
+        <section className="surface panel profile-panel">
+          <p className="eyebrow">Session</p>
+          <div className="profile-panel-head">
+            <strong className="profile-panel-title">当前会话</strong>
+            <Tag className="channel-tag">{channel || "active"}</Tag>
+          </div>
+          <div className="stack-meta">
+            <span>用户 ID：{user.id}</span>
+            <span>登录渠道：{channel || "--"}</span>
+          </div>
+        </section>
+      </aside>
+
+      <main className="main-content">
+        <section className="page-intro">
+          <div className="page-intro-head">
+            <div>
+              <p className="eyebrow">Member Console</p>
+              <h1 className="headline page-title">成员工作台</h1>
+              <p className="muted page-summary">查看账号状态、积分账本、借用记录与项目申请。</p>
             </div>
-            <div className="hero-status">
+            <div className="status-pill">
               <Activity size={18} />
               <span>{user.status}</span>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section className="status-grid">
-            <div className="status-panel accent-green">
-              <span>账号状态</span>
-              <strong>{user.status}</strong>
+        <section className="surface panel profile-hero">
+          <div className="profile-header">
+            <Avatar size={72} src={user.avatar_url || undefined} className="profile-avatar">
+              {user.display_name.slice(0, 1)}
+            </Avatar>
+            <div>
+              <Typography.Title level={1}>{user.display_name}</Typography.Title>
+              <Typography.Text type="secondary">{user.email || "未绑定邮箱"}</Typography.Text>
             </div>
-            <div className="status-panel accent-gold">
-              <span>积分余额</span>
-              <strong>--</strong>
-            </div>
-            <div className="status-panel accent-rose">
-              <span>待处理申请</span>
-              <strong>--</strong>
-            </div>
-          </section>
+          </div>
+          <div className="hero-status">
+            <Activity size={18} />
+            <span>{user.status}</span>
+          </div>
+        </section>
 
-          <section className="detail-band">
-            <div className="section-title">
-              <ShieldCheck size={18} />
-              <span>当前账号</span>
-            </div>
-            <Descriptions column={1} size="middle">
-              <Descriptions.Item label="用户 ID">{user.id}</Descriptions.Item>
-              <Descriptions.Item label="邮箱">{user.email || "--"}</Descriptions.Item>
-              <Descriptions.Item label="登录渠道">{channel || "--"}</Descriptions.Item>
-            </Descriptions>
-          </section>
+        <section className="status-grid">
+          <div className="surface panel status-panel accent-green">
+            <span>账号状态</span>
+            <strong>{user.status}</strong>
+          </div>
+          <div className="surface panel status-panel accent-gold">
+            <span>积分余额</span>
+            <strong>--</strong>
+          </div>
+          <div className="surface panel status-panel accent-rose">
+            <span>待处理申请</span>
+            <strong>--</strong>
+          </div>
+        </section>
 
-          <section className="work-grid">
-            <div className="work-panel">
-              <Statistic title="本周积分变动" value="--" />
-            </div>
-            <div className="work-panel">
-              <Statistic title="借用记录" value="--" />
-            </div>
-            <div className="work-panel">
-              <Statistic title="项目申请" value="--" />
-            </div>
-          </section>
-        </Layout.Content>
-      </Layout>
-    </Layout>
+        <section className="surface panel detail-band">
+          <div className="section-title">
+            <ShieldCheck size={18} />
+            <span>当前账号</span>
+          </div>
+          <Descriptions column={1} size="middle">
+            <Descriptions.Item label="用户 ID">{user.id}</Descriptions.Item>
+            <Descriptions.Item label="邮箱">{user.email || "--"}</Descriptions.Item>
+            <Descriptions.Item label="登录渠道">{channel || "--"}</Descriptions.Item>
+          </Descriptions>
+        </section>
+
+        <section className="work-grid">
+          <div className="surface panel work-panel">
+            <Statistic title="本周积分变动" value="--" />
+          </div>
+          <div className="surface panel work-panel">
+            <Statistic title="借用记录" value="--" />
+          </div>
+          <div className="surface panel work-panel">
+            <Statistic title="项目申请" value="--" />
+          </div>
+        </section>
+      </main>
+
+      <nav className="surface panel nav-rail" aria-label="成员端导航">
+        <p className="eyebrow">导航</p>
+        <div className="button-row button-row-vertical">
+          {menuItems.map((item) => (
+            <button className={item.key === "profile" ? "nav-button is-active" : "nav-button"} key={item.key} type="button">
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+    </div>
   );
 }
 
