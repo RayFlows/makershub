@@ -1,4 +1,4 @@
-# app/core/logging.py
+# app/core/logging/setup.py
 """
 后端日志配置
 

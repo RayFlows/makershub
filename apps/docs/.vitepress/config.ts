@@ -12,6 +12,7 @@ export default defineConfig({
         { text: "需求核对清单", link: "/rebuild/requirements-checklist" },
         { text: "项目结构规划", link: "/rebuild/project-structure" },
         { text: "第一阶段路线图", link: "/rebuild/phase-1-roadmap" },
+        { text: "后端基础设施清单", link: "/rebuild/backend-foundation-checklist" },
         { text: "仓库与版本管理", link: "/rebuild/repository-versioning" },
         { text: "环境与发布周期", link: "/rebuild/environment-release-ops" },
         { text: "后端代码注释规范", link: "/rebuild/backend-code-style" },

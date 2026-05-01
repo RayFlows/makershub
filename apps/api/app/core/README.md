@@ -6,10 +6,18 @@
 
 ## 日志
 
-`logging.py` 统一配置 Loguru：
+`logging/` 统一配置 Loguru：
 
 - 控制台输出用于 Docker 和本地开发观察；
 - 文件输出默认写入 `logs/app.log`，按天轮转并压缩保留；
 - 标准库 `logging` 会桥接到 Loguru，邮件验证码 log 模式和框架日志能进入同一套日志；
 - 请求日志由 `RequestContextMiddleware` 记录 method、path、状态码、耗时和 `request_id`；
 - 请求日志不读取请求体，避免密码、token、验证码和上传内容进入日志。
+
+## 权限
+
+`permissions/` 当前只落地权限点注册表和权限判断结果模型，用于约束后续业务接口：
+
+- 业务代码引用稳定权限点 code；
+- 不允许继续用身份数字大小比较做鉴权；
+- 用户授权、角色授权、作用域规则和权限变更审计仍待后续权限系统落地。
