@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config.settings import get_settings
 from app.core.database import close_database_engine
 from app.core.errors import register_exception_handlers
+from app.core.logging import logger, setup_logging
 from app.interfaces.http.v1 import api_router
 from app.shared.request_context import RequestContextMiddleware, get_request_id
 from app.shared.responses import success_response
@@ -43,8 +44,11 @@ async def lifespan(app: FastAPI):
         关闭阶段释放数据库连接池，避免容器停止或测试进程退出时留下悬挂连接。
     """
 
+    logger.info("应用启动完成 | env={} api_prefix={}", settings.app_env, settings.api_prefix)
     yield
+    logger.info("应用准备关闭")
     await close_database_engine()
+    logger.info("数据库连接池已关闭")
 
 
 def create_app() -> FastAPI:
@@ -54,6 +58,10 @@ def create_app() -> FastAPI:
     Returns:
         已注册中间件、异常处理和路由的 FastAPI 实例。
     """
+
+    # --- 日志初始化 ---
+    setup_logging()
+    logger.info("日志系统初始化完成 | env={} level={}", settings.app_env, settings.log_level)
 
     # --- 应用实例 ---
     app = FastAPI(

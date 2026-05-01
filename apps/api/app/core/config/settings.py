@@ -64,6 +64,16 @@ class Settings(BaseSettings):
     )
     database_echo: bool = Field(False, validation_alias="DATABASE_ECHO")  # 本地调试 SQL 时才开启
 
+    # --- 日志配置 ---
+    log_level: str = Field("INFO", validation_alias="LOG_LEVEL")
+    log_dir: str = Field("logs", validation_alias="LOG_DIR")
+    log_file: str = Field("app.log", validation_alias="LOG_FILE")
+    log_file_enabled: bool = Field(True, validation_alias="LOG_FILE_ENABLED")
+    log_rotation: str = Field("00:00", validation_alias="LOG_ROTATION")
+    log_retention: str = Field("14 days", validation_alias="LOG_RETENTION")
+    log_compression: str = Field("zip", validation_alias="LOG_COMPRESSION")
+    log_enqueue: bool = Field(True, validation_alias="LOG_ENQUEUE")
+
     # --- MinIO / 对象存储配置 ---
     minio_endpoint: str = Field("minio:9000", validation_alias="MINIO_ENDPOINT")
     minio_access_key: str = Field("makershub", validation_alias="MINIO_ACCESS_KEY")
