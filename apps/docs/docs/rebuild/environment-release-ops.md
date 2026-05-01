@@ -400,6 +400,20 @@ staging 验收
 - 数据库连接异常；
 - 外部服务调用失败。
 
+后端运行日志默认按用途分流到 `logs/`：
+
+| 文件 | 内容 | 默认保留 |
+| --- | --- | --- |
+| `app.log` | 普通运行信息、warning，不包含请求访问、debug 和 error 明细 | 30 天 |
+| `error.log` | 所有 `ERROR/CRITICAL`，包含请求异常和业务异常 | 180 天 |
+| `request.log` | HTTP 请求开始、结束、状态码、耗时和 `request_id` | 30 天 |
+| `debug.log` | `DEBUG` 明细，本地和测试默认开启，生产默认关闭 | 7 天 |
+
+日志文件默认每天轮转并压缩。生产环境不应无限保留运行日志，保留周期通过
+`LOG_RETENTION`、`LOG_ERROR_RETENTION`、`LOG_REQUEST_RETENTION`、
+`LOG_DEBUG_RETENTION` 调整；生产如需临时打开 debug 文件，应明确设置
+`LOG_DEBUG_FILE_ENABLED=true`，排查结束后关闭。
+
 至少应监控：
 
 - 服务是否存活；

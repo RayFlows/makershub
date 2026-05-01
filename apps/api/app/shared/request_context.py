@@ -12,7 +12,8 @@ from time import perf_counter
 from uuid import uuid4
 
 from fastapi import Request
-from loguru import logger
+from app.core.logging import logger
+from app.core.logging.setup import LOG_CATEGORY_EXTRA_KEY, REQUEST_LOG_CATEGORY
 from starlette.middleware.base import BaseHTTPMiddleware
 
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -34,7 +35,8 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
         with logger.contextualize(request_id=request_id):
             # 请求日志只记录路由、来源和耗时，不读取 body，避免敏感字段进入日志。
-            logger.info(
+            request_logger = logger.bind(**{LOG_CATEGORY_EXTRA_KEY: REQUEST_LOG_CATEGORY})
+            request_logger.info(
                 "HTTP 请求开始 | method={} path={}{} client_ip={}",
                 request.method,
                 request.url.path,
@@ -45,7 +47,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 response = await call_next(request)
             except Exception:
                 duration_ms = (perf_counter() - started_at) * 1000
-                logger.exception(
+                request_logger.exception(
                     "HTTP 请求异常 | method={} path={} duration_ms={:.2f}",
                     request.method,
                     request.url.path,
@@ -55,7 +57,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
             duration_ms = (perf_counter() - started_at) * 1000
             response.headers[REQUEST_ID_HEADER] = request_id
-            logger.info(
+            request_logger.info(
                 "HTTP 请求结束 | method={} path={} status={} duration_ms={:.2f}",
                 request.method,
                 request.url.path,

@@ -9,7 +9,12 @@
 `logging/` 统一配置 Loguru：
 
 - 控制台输出用于 Docker 和本地开发观察；
-- 文件输出默认写入 `logs/app.log`，按天轮转并压缩保留；
+- 文件输出按用途分流，默认写入 `logs/app.log`、`logs/error.log`、`logs/request.log`、`logs/debug.log`；
+- `app.log` 只记录普通运行信息和 warning，默认保留 30 天；
+- `error.log` 记录所有 `ERROR/CRITICAL`，默认保留 180 天，便于线上事故复盘；
+- `request.log` 记录 HTTP 请求开始、结束和异常，默认保留 30 天；
+- `debug.log` 只记录 `DEBUG`，默认保留 7 天；生产环境默认不写，除非显式配置 `LOG_DEBUG_FILE_ENABLED=true`；
+- 所有文件默认按天轮转并压缩，保留周期通过 `LOG_RETENTION`、`LOG_ERROR_RETENTION`、`LOG_REQUEST_RETENTION`、`LOG_DEBUG_RETENTION` 调整；
 - 标准库 `logging` 会桥接到 Loguru，邮件验证码 log 模式和框架日志能进入同一套日志；
 - 请求日志由 `RequestContextMiddleware` 记录 method、path、状态码、耗时和 `request_id`；
 - 请求日志不读取请求体，避免密码、token、验证码和上传内容进入日志。

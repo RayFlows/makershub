@@ -8,7 +8,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -67,12 +67,35 @@ class Settings(BaseSettings):
     # --- 日志配置 ---
     log_level: str = Field("INFO", validation_alias="LOG_LEVEL")
     log_dir: str = Field("logs", validation_alias="LOG_DIR")
-    log_file: str = Field("app.log", validation_alias="LOG_FILE")
+    log_app_file: str = Field(
+        "app.log",
+        validation_alias=AliasChoices("LOG_APP_FILE", "LOG_FILE"),
+    )
+    log_error_file: str = Field("error.log", validation_alias="LOG_ERROR_FILE")
+    log_request_file: str = Field("request.log", validation_alias="LOG_REQUEST_FILE")
+    log_debug_file: str = Field("debug.log", validation_alias="LOG_DEBUG_FILE")
     log_file_enabled: bool = Field(True, validation_alias="LOG_FILE_ENABLED")
+    log_console_enabled: bool = Field(True, validation_alias="LOG_CONSOLE_ENABLED")
     log_rotation: str = Field("00:00", validation_alias="LOG_ROTATION")
-    log_retention: str = Field("14 days", validation_alias="LOG_RETENTION")
+    log_retention: str = Field("30 days", validation_alias="LOG_RETENTION")
+    log_error_retention: str = Field("180 days", validation_alias="LOG_ERROR_RETENTION")
+    log_request_retention: str = Field("30 days", validation_alias="LOG_REQUEST_RETENTION")
+    log_debug_retention: str = Field("7 days", validation_alias="LOG_DEBUG_RETENTION")
     log_compression: str = Field("zip", validation_alias="LOG_COMPRESSION")
     log_enqueue: bool = Field(True, validation_alias="LOG_ENQUEUE")
+    log_debug_file_enabled: bool | None = Field(None, validation_alias="LOG_DEBUG_FILE_ENABLED")
+
+    @property
+    def should_write_debug_log_file(self) -> bool:
+        """
+        是否写入 debug 文件。
+
+        生产环境默认关闭 debug 文件，避免低价值日志长期堆积；本地和测试环境默认开启。
+        """
+
+        if self.log_debug_file_enabled is not None:
+            return self.log_debug_file_enabled
+        return self.app_env != "production"
 
     # --- MinIO / 对象存储配置 ---
     minio_endpoint: str = Field("minio:9000", validation_alias="MINIO_ENDPOINT")
