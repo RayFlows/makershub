@@ -240,7 +240,7 @@ class PermissionRepository:
         user_role.revoked_at = datetime.now(UTC)
         return user_role
 
-    # --- 系统职务桥接 ---
+    # --- 系统职务映射 ---
     async def user_has_system_position(self, *, user_id: int, position_code: str) -> bool:
         """
         检查用户是否拥有有效系统职务。

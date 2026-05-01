@@ -2,7 +2,7 @@
 """
 权限服务层
 
-本文件负责把权限点注册表、数据库角色授权和系统职务桥接成统一判断结果。
+本文件负责把权限点注册表、数据库角色授权和系统职务映射成统一判断结果。
 业务接口只应该依赖 `check_user_permission` 或 HTTP 层的 `require_permission`，
 不要再直接比较职务数字或部门编号。
 """
@@ -16,6 +16,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions.repository import PermissionRepository
 from app.core.permissions.registry import permission_registry
 from app.core.permissions.types import PermissionDecision
+
+
+SYSTEM_ADMIN_PERMISSION_CODES = frozenset(
+    {
+        "system.admin.access",
+        "system.audit.view",
+        "system.permission.manage",
+        "files.manage",
+    },
+)
+"""
+998 和 999 共同拥有的系统兜底权限。
+
+这些权限服务系统管理、异常修复和受控兜底，不包含组织、积分、资源、借用等日常
+业务审批权限。需要日常业务能力时，应通过角色授权显式授予。
+"""
+
+
+SUPER_ADMIN_ONLY_PERMISSION_CODES = frozenset(
+    {
+        "system.operator.manage",
+        "system.super_admin.recover",
+    },
+)
+"""
+唯一 999 额外拥有的母账号权限。
+
+999 出现的核心原因是系统需要一个母账号来初始化、指定或恢复 998。除这些母账号
+动作外，998 与 999 的系统兜底能力保持一致。
+"""
 
 
 @dataclass(frozen=True)
@@ -51,14 +81,14 @@ DEFAULT_ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
     RoleDefinition(
         code="system_super_admin",
         name="超级管理员",
-        description="系统唯一 999 兜底身份对应的完整权限集合。",
-        permission_codes=None,
+        description="系统唯一 999 母账号，用于初始化、指定或恢复 998。",
+        permission_codes=tuple(sorted(SYSTEM_ADMIN_PERMISSION_CODES | SUPER_ADMIN_ONLY_PERMISSION_CODES)),
     ),
     RoleDefinition(
         code="system_operator",
         name="系统运维管理员",
-        description="998 管理由唯一 999 指定，底层能力与 999 一致。",
-        permission_codes=None,
+        description="998 管理由唯一 999 指定，拥有系统兜底权限。",
+        permission_codes=tuple(sorted(SYSTEM_ADMIN_PERMISSION_CODES)),
     ),
     RoleDefinition(
         code="organization_manager",
@@ -94,7 +124,6 @@ async def sync_registered_permissions(session: AsyncSession) -> PermissionSyncRe
         await repository.upsert_permission_point(point)
     await session.flush()
 
-    all_codes = tuple(point.code for point in points)
     for role_definition in DEFAULT_ROLE_DEFINITIONS:
         role = await repository.upsert_role(
             code=role_definition.code,
@@ -102,8 +131,7 @@ async def sync_registered_permissions(session: AsyncSession) -> PermissionSyncRe
             description=role_definition.description,
             is_system=role_definition.is_system,
         )
-        permission_codes = role_definition.permission_codes or all_codes
-        await repository.replace_role_permissions(role, permission_codes)
+        await repository.replace_role_permissions(role, role_definition.permission_codes or ())
 
     return PermissionSyncResult(
         permission_count=len(points),
@@ -121,9 +149,8 @@ async def get_user_permission_summary(
     """
     获取用户权限摘要。
 
-    `998` 与 `999` 的底层能力一致，区别在于 `998` 必须由唯一 `999` 指定。
-    普通用户只返回数据库角色授权得到的权限点。这样可以让后台菜单和接口鉴权
-    使用同一套结果。
+    `998` 与 `999` 共同拥有系统兜底权限；`999` 额外拥有母账号动作权限。
+    普通业务权限不因 998/999 自动获得，仍应通过业务角色或作用域授权显式授予。
     """
 
     repository = PermissionRepository(session)
@@ -137,8 +164,10 @@ async def get_user_permission_summary(
     )
 
     permission_codes: set[str] = set()
-    if is_super_admin or is_system_operator:
-        permission_codes.update(point.code for point in permission_registry.list())
+    if is_super_admin:
+        permission_codes.update(SYSTEM_ADMIN_PERMISSION_CODES | SUPER_ADMIN_ONLY_PERMISSION_CODES)
+    elif is_system_operator:
+        permission_codes.update(SYSTEM_ADMIN_PERMISSION_CODES)
 
     permission_codes.update(
         await repository.list_user_permission_codes(
@@ -183,20 +212,28 @@ async def check_user_permission(
         )
 
     repository = PermissionRepository(session)
-    if await repository.user_has_system_position(user_id=user_id, position_code="999"):
+    is_super_admin = await repository.user_has_system_position(user_id=user_id, position_code="999")
+    if (
+        is_super_admin
+        and permission_code in SYSTEM_ADMIN_PERMISSION_CODES | SUPER_ADMIN_ONLY_PERMISSION_CODES
+    ):
         return PermissionDecision(
             allowed=True,
             permission_code=permission_code,
-            reason="999 超级管理员兜底放行",
+            reason="999 母账号权限放行",
             scope_type=scope_type,
             scope_id=scope_id,
         )
 
-    if await repository.user_has_system_position(user_id=user_id, position_code="998"):
+    is_system_operator = await repository.user_has_system_position(
+        user_id=user_id,
+        position_code="998",
+    )
+    if is_system_operator and permission_code in SYSTEM_ADMIN_PERMISSION_CODES:
         return PermissionDecision(
             allowed=True,
             permission_code=permission_code,
-            reason="998 管理员底层权限放行",
+            reason="998 系统兜底权限放行",
             scope_type=scope_type,
             scope_id=scope_id,
         )

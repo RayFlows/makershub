@@ -35,6 +35,7 @@ def test_core_permission_registry_contains_required_points() -> None:
     assert "organization.member.manage" in codes
     assert "organization.department.manage" in codes
     assert "organization.position.manage" in codes
+    assert "system.operator.manage" in codes
     assert "system.super_admin.recover" in codes
 
 
@@ -128,8 +129,8 @@ async def test_role_grant_controls_permission_codes() -> None:
 
 
 @pytest.mark.asyncio
-async def test_super_admin_position_bypasses_registered_permissions() -> None:
-    """999 超级管理员只作为系统兜底身份，能够拿到全部注册权限点。"""
+async def test_super_admin_position_has_mother_account_permissions_only() -> None:
+    """999 是母账号，默认不自动拥有普通业务权限。"""
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as connection:
@@ -154,23 +155,30 @@ async def test_super_admin_position_bypasses_registered_permissions() -> None:
         user_id = user.id
 
     async with session_factory() as session:
-        decision = await check_user_permission(
+        operator_manage_decision = await check_user_permission(
             session,
             user_id=user_id,
-            permission_code="files.upload",
+            permission_code="system.operator.manage",
+        )
+        business_decision = await check_user_permission(
+            session,
+            user_id=user_id,
+            permission_code="organization.member.manage",
         )
         summary = await get_user_permission_summary(session, user_id=user_id)
 
-    assert decision.allowed is True
+    assert operator_manage_decision.allowed is True
+    assert business_decision.allowed is False
     assert summary.is_super_admin is True
-    assert set(summary.permissions) == {point.code for point in permission_registry.list()}
+    assert "system.operator.manage" in summary.permissions
+    assert "organization.member.manage" not in summary.permissions
 
     await engine.dispose()
 
 
 @pytest.mark.asyncio
-async def test_system_operator_position_has_same_permission_set_as_super_admin() -> None:
-    """998 由 999 指定，但底层能力集合与 999 一致。"""
+async def test_system_operator_position_has_system_fallback_permissions_only() -> None:
+    """998 由 999 指定，默认只拥有系统兜底权限。"""
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as connection:
@@ -195,16 +203,30 @@ async def test_system_operator_position_has_same_permission_set_as_super_admin()
         user_id = user.id
 
     async with session_factory() as session:
-        decision = await check_user_permission(
+        audit_decision = await check_user_permission(
+            session,
+            user_id=user_id,
+            permission_code="system.audit.view",
+        )
+        operator_manage_decision = await check_user_permission(
+            session,
+            user_id=user_id,
+            permission_code="system.operator.manage",
+        )
+        business_decision = await check_user_permission(
             session,
             user_id=user_id,
             permission_code="organization.member.manage",
         )
         summary = await get_user_permission_summary(session, user_id=user_id)
 
-    assert decision.allowed is True
+    assert audit_decision.allowed is True
+    assert operator_manage_decision.allowed is False
+    assert business_decision.allowed is False
     assert summary.is_super_admin is False
     assert summary.is_system_operator is True
-    assert set(summary.permissions) == {point.code for point in permission_registry.list()}
+    assert "system.audit.view" in summary.permissions
+    assert "system.operator.manage" not in summary.permissions
+    assert "organization.member.manage" not in summary.permissions
 
     await engine.dispose()

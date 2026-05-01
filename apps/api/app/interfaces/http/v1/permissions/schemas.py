@@ -2,7 +2,7 @@
 """
 权限接口响应模型
 
-接口层 schema 只描述 HTTP 契约，权限授予、作用域匹配和 998/999 桥接规则
+接口层 schema 只描述 HTTP 契约，权限授予、作用域匹配和 998/999 映射规则
 由 core.permissions.service 负责。
 """
 
@@ -40,4 +40,3 @@ class CurrentUserPermissions(BaseModel):
     permissions: list[str]
     is_super_admin: bool
     is_system_operator: bool
-

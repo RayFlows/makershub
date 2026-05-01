@@ -112,6 +112,13 @@ def register_core_permissions() -> None:
             risk_level=PermissionRiskLevel.CRITICAL,
         ),
         PermissionPoint(
+            code="system.operator.manage",
+            name="指定或移除管理员",
+            module="system",
+            description="由唯一 999 指定或移除 998 管理员。",
+            risk_level=PermissionRiskLevel.CRITICAL,
+        ),
+        PermissionPoint(
             code="organization.member.manage",
             name="维护成员资料",
             module="organization",
