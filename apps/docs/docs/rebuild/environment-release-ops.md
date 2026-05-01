@@ -414,6 +414,20 @@ staging 验收
 `LOG_DEBUG_RETENTION` 调整；生产如需临时打开 debug 文件，应明确设置
 `LOG_DEBUG_FILE_ENABLED=true`，排查结束后关闭。
 
+API 应用层默认启用基础 HTTP 安全边界：
+
+- `SECURITY_HEADERS_ENABLED`：是否写入基础安全响应头；
+- `HSTS_ENABLED`：是否写入 HSTS；未显式设置时仅生产环境默认开启；
+- `REQUEST_SIZE_LIMIT_ENABLED` / `MAX_REQUEST_BODY_BYTES`：普通接口请求体上限；
+- `RATE_LIMIT_ENABLED`：是否启用应用层兜底限流；
+- `RATE_LIMIT_WINDOW_SECONDS` / `RATE_LIMIT_MAX_REQUESTS`：普通接口限流窗口；
+- `AUTH_RATE_LIMIT_WINDOW_SECONDS` / `AUTH_RATE_LIMIT_MAX_REQUESTS`：认证敏感接口限流窗口；
+- `RATE_LIMIT_EXEMPT_PATHS`：健康检查和文档等限流豁免路径；
+- `AUTH_RATE_LIMIT_PATHS`：使用严格认证限流桶的路径。
+
+注意：应用层限流是单进程兜底能力。生产如果使用多 worker、多实例或反向代理，
+必须在网关、Redis 或云安全产品侧配置集中限流，并保证真实客户端 IP 解析可信。
+
 至少应监控：
 
 - 服务是否存活；

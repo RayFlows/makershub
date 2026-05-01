@@ -31,6 +31,7 @@
 | 请求上下文 | 已完成基础版 | 透传或生成 `X-Request-ID`，请求日志不记录 body/query |
 | 运行日志 | 已完成基础版 | Loguru 控制台、文件分流、轮转保留、标准 logging 桥接 |
 | 健康检查 | 已完成基础版 | `/health` 做 liveness，`/api/v1/health` 做依赖 readiness，异常时返回 503 |
+| HTTP 安全边界 | 已完成基础版 | 安全响应头、HSTS、请求体大小限制、认证接口和全局兜底限流 |
 | 邮件发送适配 | 已完成基础版 | 本地 log 模式、SMTP 模式，生产环境禁止 log 模式输出明文验证码 |
 | 工程化守卫 | 已完成基础版 | 测试检查 Python 文件头、模块说明和基础设施目录 README |
 | 身份认证 | 已完成第一阶段主体 | 微信登录、本地账号、双 token、会话撤销 |
@@ -49,7 +50,38 @@
 | 文件上传 | 已有元数据基础 | 增加实际上传接口、预签名 URL、业务文件引用和权限策略 |
 | 监控告警 | 文档规划中 | 第一阶段先用健康检查和日志，后续接集中监控 |
 | 后台权限菜单 | 未实现 | 使用 `/auth/me` 和 `/permissions/me` 返回的权限摘要过滤 |
-| 速率限制 | 仅邮箱验证码局部实现 | 登录、上传和高风险接口需要统一限流策略 |
+| 集中限流 | 已有应用层兜底 | 多实例生产环境需要 Redis、网关或云安全产品统一限流 |
+| 安全响应头 | 已有应用层基础 | 生产网关仍需复核 HSTS、Server/X-Powered-By、TLS 和 CSP 策略 |
+| 请求大小限制 | 已有应用层基础 | 统一上传接口需要单独的上传大小、文件类型和对象存储配额策略 |
+| 配置安全校验 | 已有基础版 | 继续补 secret 强度、生产默认值、配置漂移检查 |
+| 依赖安全扫描 | 未实现 | CI 中接入 Python/Node 依赖漏洞扫描和 lockfile 检查 |
+| 可观测性 | 文档规划中 | 接入 OpenTelemetry traces/metrics/logs export 和集中日志 |
+
+## 业界基线对照
+
+本清单按以下公开基线持续对照：
+
+- [OWASP API Security Top 10 2023](https://owasp.org/API-Security/editions/2023/en/0x00-header/)；
+- [OWASP REST Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html)；
+- [OWASP HTTP Headers Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html)；
+- [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)。
+
+当前已吸收的基础设施要求包括：
+
+- API4/API6 相关的资源消耗和敏感业务流滥用防护：应用层全局限流、认证限流和请求体大小限制；
+- API8 相关的安全配置防护：生产 CORS 禁止 `*`、生产 HSTS、基础安全响应头；
+- API2 相关的认证安全：短期 access token、refresh token 哈希存储、刷新轮换、会话撤销；
+- Logging Cheat Sheet 相关要求：运行日志分流、请求日志不记录 body/query、500 级错误入错误日志；
+- REST Security 相关要求：限流错误使用 429，过大请求使用 413，错误响应不暴露内部堆栈。
+
+仍未达到完整生产级的部分：
+
+- 进程内限流不能覆盖多 worker、多实例和分布式攻击，生产必须接 Redis、网关或云安全产品；
+- OpenTelemetry、集中日志、指标面板和告警还未接入；
+- 依赖漏洞扫描、镜像扫描、secret 扫描和 SBOM 尚未进入 CI；
+- 文件上传还缺预签名 URL、文件类型校验、病毒扫描或异步安全扫描；
+- 权限拒绝审计和对象级授权规则需要跟业务域一起细化；
+- 备份恢复演练、灾备流程和生产 runbook 还需要落地。
 
 ## 近期必须补齐
 

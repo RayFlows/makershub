@@ -6,9 +6,11 @@
 字段使用 validation_alias 显式绑定环境变量名，避免 Python 属性名和部署变量名混淆。
 """
 
+from __future__ import annotations
+
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -85,6 +87,30 @@ class Settings(BaseSettings):
     log_enqueue: bool = Field(True, validation_alias="LOG_ENQUEUE")
     log_debug_file_enabled: bool | None = Field(None, validation_alias="LOG_DEBUG_FILE_ENABLED")
 
+    # --- HTTP 安全边界配置 ---
+    security_headers_enabled: bool = Field(True, validation_alias="SECURITY_HEADERS_ENABLED")
+    hsts_enabled: bool | None = Field(None, validation_alias="HSTS_ENABLED")
+    hsts_max_age_seconds: int = Field(63072000, validation_alias="HSTS_MAX_AGE_SECONDS")
+    request_size_limit_enabled: bool = Field(True, validation_alias="REQUEST_SIZE_LIMIT_ENABLED")
+    max_request_body_bytes: int = Field(2 * 1024 * 1024, validation_alias="MAX_REQUEST_BODY_BYTES")
+    rate_limit_enabled: bool = Field(True, validation_alias="RATE_LIMIT_ENABLED")
+    rate_limit_window_seconds: int = Field(60, validation_alias="RATE_LIMIT_WINDOW_SECONDS")
+    rate_limit_max_requests: int = Field(300, validation_alias="RATE_LIMIT_MAX_REQUESTS")
+    auth_rate_limit_window_seconds: int = Field(60, validation_alias="AUTH_RATE_LIMIT_WINDOW_SECONDS")
+    auth_rate_limit_max_requests: int = Field(30, validation_alias="AUTH_RATE_LIMIT_MAX_REQUESTS")
+    rate_limit_exempt_paths: str = Field(
+        "/health,/api/v1/health,/api/v1/docs,/api/v1/openapi.json",
+        validation_alias="RATE_LIMIT_EXEMPT_PATHS",
+    )
+    auth_rate_limit_paths: str = Field(
+        "/api/v1/auth/wechat/login,"
+        "/api/v1/auth/password/login,"
+        "/api/v1/auth/email/send-code,"
+        "/api/v1/auth/email/first-login,"
+        "/api/v1/auth/refresh",
+        validation_alias="AUTH_RATE_LIMIT_PATHS",
+    )
+
     @field_validator("app_env")
     @classmethod
     def normalize_app_env(cls, value: str) -> str:
@@ -113,6 +139,30 @@ class Settings(BaseSettings):
             raise ValueError("LOG_LEVEL 不在 Loguru 支持的等级范围内")
         return normalized
 
+    @field_validator(
+        "hsts_max_age_seconds",
+        "max_request_body_bytes",
+        "rate_limit_window_seconds",
+        "rate_limit_max_requests",
+        "auth_rate_limit_window_seconds",
+        "auth_rate_limit_max_requests",
+    )
+    @classmethod
+    def validate_positive_integer(cls, value: int) -> int:
+        """校验安全边界相关数值必须为正数。"""
+
+        if value <= 0:
+            raise ValueError("安全边界配置必须为正数")
+        return value
+
+    @model_validator(mode="after")
+    def validate_production_cors(self) -> Settings:
+        """生产环境不允许使用通配 CORS。"""
+
+        if self.app_env == "production" and "*" in self.allow_origins:
+            raise ValueError("生产环境 CORS_ORIGINS 不能使用 *")
+        return self
+
     @property
     def should_write_debug_log_file(self) -> bool:
         """
@@ -124,6 +174,26 @@ class Settings(BaseSettings):
         if self.log_debug_file_enabled is not None:
             return self.log_debug_file_enabled
         return self.app_env != "production"
+
+    @property
+    def should_send_hsts_header(self) -> bool:
+        """是否发送 HSTS 响应头。"""
+
+        if self.hsts_enabled is not None:
+            return self.hsts_enabled
+        return self.app_env == "production"
+
+    @property
+    def rate_limit_exempt_path_list(self) -> list[str]:
+        """把逗号分隔的限流豁免路径转换成列表。"""
+
+        return [path.strip() for path in self.rate_limit_exempt_paths.split(",") if path.strip()]
+
+    @property
+    def auth_rate_limit_path_list(self) -> list[str]:
+        """把逗号分隔的敏感认证路径转换成列表。"""
+
+        return [path.strip() for path in self.auth_rate_limit_paths.split(",") if path.strip()]
 
     # --- MinIO / 对象存储配置 ---
     minio_endpoint: str = Field("minio:9000", validation_alias="MINIO_ENDPOINT")
