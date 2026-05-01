@@ -1,3 +1,10 @@
+# tests/test_identity.py
+"""
+身份领域服务测试
+
+本文件验证内部用户主体、微信身份、本地账号、邮箱绑定和唯一 999 初始化等核心规则。
+"""
+
 from __future__ import annotations
 
 import pytest

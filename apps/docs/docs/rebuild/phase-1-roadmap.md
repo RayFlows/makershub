@@ -137,12 +137,13 @@
 
 当前进展：
 
-- 已完成 FastAPI 入口、`/health`、`/api/v1/health`；
+- 已完成 FastAPI 入口、`/health`、`/api/v1/health`；其中 `/api/v1/health` 是 readiness，依赖异常时返回 503；
 - 已完成 Dockerfile 和 `infra/docker/compose.dev.yml`；
 - 已完成 SQLAlchemy 异步数据库连接、会话工厂和数据库健康检查；
 - 已完成 MinIO 健康检查；
 - 已完成统一成功响应、统一错误响应、请求 ID 和基础分页结构；
 - 已完成运行日志基础设施，包含 Loguru 初始化、文件分流、轮转保留、标准 logging 桥接和请求耗时日志；
+- 已完成工程化守卫测试，检查后端 Python 文件头、模块说明和基础目录 README；
 - 已完成权限基础版，包含权限点入库、默认角色、用户角色授权、`998/999` 映射和 `require_permission(...)`；
 - 已完成审计基础版，包含 `audit_logs`、审计服务和审计日志读取接口；
 - 已完成文件元数据基础版，包含 `files` 表、对象 key 生成和元数据登记服务；

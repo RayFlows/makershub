@@ -1,3 +1,12 @@
+# tests/test_app.py
+"""
+应用入口与统一响应测试
+
+本文件验证 FastAPI 应用基础能力：进程存活检查、统一错误响应和 request_id 透传。
+"""
+
+from __future__ import annotations
+
 from fastapi.testclient import TestClient
 
 from app.main import create_app

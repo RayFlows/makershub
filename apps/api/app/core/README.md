@@ -17,7 +17,16 @@
 - 所有文件默认按天轮转并压缩，保留周期通过 `LOG_RETENTION`、`LOG_ERROR_RETENTION`、`LOG_REQUEST_RETENTION`、`LOG_DEBUG_RETENTION` 调整；
 - 标准库 `logging` 会桥接到 Loguru，邮件验证码 log 模式和框架日志能进入同一套日志；
 - 请求日志由 `RequestContextMiddleware` 记录 method、path、状态码、耗时和 `request_id`；
-- 请求日志不读取请求体，避免密码、token、验证码和上传内容进入日志。
+- 请求日志不读取请求体或 query string，避免密码、token、验证码和上传内容进入日志。
+
+## 错误处理
+
+`errors/` 统一处理业务异常、参数校验错误、HTTP 框架错误和未知异常：
+
+- 业务层抛出 `AppError`，由全局 handler 转为统一错误响应；
+- 500 级业务异常和未知异常会写入运行日志，并携带 `request_id`；
+- 响应中不暴露堆栈、SQL、密钥或内部连接信息；
+- 运行日志只用于排查，关键业务修改仍需写入审计日志。
 
 ## 权限
 

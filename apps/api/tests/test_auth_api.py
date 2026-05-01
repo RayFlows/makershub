@@ -1,3 +1,10 @@
+# tests/test_auth_api.py
+"""
+身份认证接口测试
+
+本文件验证微信登录、双令牌续签、邮箱绑定、首次登录、设置密码和密码登录闭环。
+"""
+
 from __future__ import annotations
 
 import asyncio

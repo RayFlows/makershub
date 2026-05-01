@@ -417,7 +417,7 @@ staging 验收
 至少应监控：
 
 - 服务是否存活；
-- API 健康检查；
+- API 健康检查：`/health` 用于 liveness，`/api/v1/health` 用于 readiness；依赖异常时 readiness 返回 503；
 - MySQL 可用性；
 - MinIO 可用性；
 - 磁盘空间；

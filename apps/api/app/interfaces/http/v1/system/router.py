@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from fastapi import APIRouter, Request
 
 from app.core.config.settings import get_settings
@@ -20,7 +22,7 @@ from app.shared.responses import success_response
 router = APIRouter()
 
 
-async def check_dependency(name: str, check) -> dict[str, str]:
+async def check_dependency(name: str, check: Callable[[], Awaitable[None]]) -> dict[str, str]:
     """
     执行单个依赖健康检查。
 
@@ -50,8 +52,8 @@ async def readiness(request: Request):
     服务依赖就绪检查。
 
     Returns:
-        包含数据库、MinIO 等依赖状态的统一成功响应。
-        当某个依赖异常时，整体 status 为 degraded，但接口本身仍返回结构化结果。
+        包含数据库、MinIO 等依赖状态的统一响应。
+        当某个依赖异常时，整体 status 为 degraded，并返回 503 供部署平台识别。
     """
 
     settings = get_settings()
@@ -69,4 +71,5 @@ async def readiness(request: Request):
             "checks": checks,
         },
         request_id=get_request_id(request),
+        status_code=200 if status == "ok" else 503,
     )

@@ -217,6 +217,7 @@ Authorization: Bearer <token>
 - `/auth/email/first-login` 成功后会签发登录令牌并返回 `password_required=true`，网页端必须立即进入首次设置密码流程；
 - `/auth/password/set` 第一版只处理首次设置密码，已设置过密码的账号后续走修改密码或重置密码流程；
 - 本地开发使用 `EMAIL_DELIVERY_MODE=log`，验证码写入服务日志，并只在 local/test/development 响应中返回 `dev_code`；
+- 生产环境禁止使用 `EMAIL_DELIVERY_MODE=log`，避免明文验证码进入运行日志；
 - 邮箱验证码 5 分钟有效；
 - 同一邮箱 1 小时最多发送 10 次；
 - 每次重新请求至少间隔 1 分钟；

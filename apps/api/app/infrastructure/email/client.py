@@ -39,6 +39,12 @@ async def send_email_verification_code(
     settings = get_settings()
     mode = settings.email_delivery_mode.lower()
     if mode == "log":
+        if settings.app_env == "production":
+            raise AppError(
+                "EMAIL_LOG_MODE_FORBIDDEN",
+                "生产环境不允许使用日志模式发送邮箱验证码",
+                status_code=500,
+            )
         logger.warning(
             "email verification code email=%s purpose=%s code=%s expires_minutes=%s",
             email,

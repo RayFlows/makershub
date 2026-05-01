@@ -8,7 +8,7 @@
 
 from functools import lru_cache
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -84,6 +84,34 @@ class Settings(BaseSettings):
     log_compression: str = Field("zip", validation_alias="LOG_COMPRESSION")
     log_enqueue: bool = Field(True, validation_alias="LOG_ENQUEUE")
     log_debug_file_enabled: bool | None = Field(None, validation_alias="LOG_DEBUG_FILE_ENABLED")
+
+    @field_validator("app_env")
+    @classmethod
+    def normalize_app_env(cls, value: str) -> str:
+        """规范化环境名称，避免大小写或空格导致安全分支失效。"""
+
+        return value.strip().lower()
+
+    @field_validator("email_delivery_mode")
+    @classmethod
+    def validate_email_delivery_mode(cls, value: str) -> str:
+        """校验邮件发送模式。"""
+
+        normalized = value.strip().lower()
+        if normalized not in {"log", "smtp"}:
+            raise ValueError("EMAIL_DELIVERY_MODE 只能是 log 或 smtp")
+        return normalized
+
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, value: str) -> str:
+        """校验日志等级，避免 Loguru 在启动阶段才暴露配置错误。"""
+
+        normalized = value.strip().upper()
+        allowed = {"TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"}
+        if normalized not in allowed:
+            raise ValueError("LOG_LEVEL 不在 Loguru 支持的等级范围内")
+        return normalized
 
     @property
     def should_write_debug_log_file(self) -> bool:

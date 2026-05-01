@@ -31,16 +31,14 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         started_at = perf_counter()
         client_ip = request.client.host if request.client else "-"
-        query = f"?{request.url.query}" if request.url.query else ""
 
         with logger.contextualize(request_id=request_id):
-            # 请求日志只记录路由、来源和耗时，不读取 body，避免敏感字段进入日志。
+            # 请求日志只记录路由、来源和耗时，不读取 body/query，避免敏感字段进入日志。
             request_logger = logger.bind(**{LOG_CATEGORY_EXTRA_KEY: REQUEST_LOG_CATEGORY})
             request_logger.info(
-                "HTTP 请求开始 | method={} path={}{} client_ip={}",
+                "HTTP 请求开始 | method={} path={} client_ip={}",
                 request.method,
                 request.url.path,
-                query,
                 client_ip,
             )
             try:

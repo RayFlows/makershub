@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.errors.exceptions import AppError
+from app.core.logging import logger
 from app.shared.request_context import get_request_id
 from app.shared.responses import error_response
 
@@ -27,11 +28,20 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def handle_app_error(request: Request, exc: AppError):
         """业务层显式抛出的错误，直接使用业务错误码和状态码。"""
 
+        request_id = get_request_id(request)
+        if exc.status_code >= 500:
+            logger.bind(request_id=request_id).error(
+                "业务异常升级为服务错误 | code={} status={} method={} path={}",
+                exc.code,
+                exc.status_code,
+                request.method,
+                request.url.path,
+            )
         return error_response(
             code=exc.code,
             message=exc.message,
             status_code=exc.status_code,
-            request_id=get_request_id(request),
+            request_id=request_id,
             details=exc.details,
         )
 
@@ -62,10 +72,17 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def handle_unexpected_error(request: Request, exc: Exception):
         """未知异常兜底，避免内部堆栈或数据库细节直接暴露给客户端。"""
 
+        request_id = get_request_id(request)
+        logger.bind(request_id=request_id).opt(exception=exc).error(
+            "未处理异常 | method={} path={} error={}",
+            request.method,
+            request.url.path,
+            exc.__class__.__name__,
+        )
         return error_response(
             code="INTERNAL_SERVER_ERROR",
             message="服务器内部错误",
             status_code=500,
-            request_id=get_request_id(request),
+            request_id=request_id,
             details={"error": exc.__class__.__name__},
         )
