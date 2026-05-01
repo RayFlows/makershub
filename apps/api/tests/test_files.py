@@ -2,13 +2,14 @@
 """
 文件元数据基础设施测试
 
-文件模块先验证对象 key 生成、hash 计算和 files 表元数据登记。实际上传到 MinIO
-会在统一上传接口落地时再做集成测试。
+文件模块验证对象 key 生成、上传意图、上传完成复核和 files 表元数据登记。
+真实 MinIO 集成由环境测试覆盖，单元测试使用假客户端验证服务层契约。
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -20,6 +21,7 @@ from app.modules.files.service import (
     FileUploadIntentInput,
     build_object_key,
     calculate_sha256,
+    complete_file_upload,
     create_file_upload_intent,
     normalize_filename,
     register_file_metadata,
@@ -143,5 +145,127 @@ async def test_create_file_upload_intent_registers_pending_metadata(monkeypatch)
     assert result.file_object.bucket == "makershub-projects-local"
     assert result.file_object.content_type == "application/pdf"
     assert result.upload_url.startswith("https://upload.example.com/project_material/users/9/")
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_complete_file_upload_verifies_object_and_records_hash(monkeypatch) -> None:
+    """完成上传时应该复核对象存储元信息并记录 sha256。"""
+
+    file_data = b"makershub project material"
+    expected_sha256 = calculate_sha256(file_data)
+
+    class FakeObjectResponse:
+        """测试用对象存储响应。"""
+
+        def stream(self, chunk_size):
+            assert chunk_size == 32 * 1024
+            yield file_data
+
+        def close(self):
+            return None
+
+        def release_conn(self):
+            return None
+
+    class FakeMinioClient:
+        """测试用 MinIO 客户端。"""
+
+        def stat_object(self, bucket_name, object_name):
+            assert bucket_name == "makershub-projects-local"
+            assert object_name == "project_material/users/9/test.pdf"
+            return SimpleNamespace(size=len(file_data), content_type="application/pdf")
+
+        def get_object(self, bucket_name, object_name):
+            assert bucket_name == "makershub-projects-local"
+            assert object_name == "project_material/users/9/test.pdf"
+            return FakeObjectResponse()
+
+    monkeypatch.setattr("app.modules.files.service.create_minio_client", lambda: FakeMinioClient())
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    _ = User
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as session:
+        pending_file = await register_file_metadata(
+            session,
+            FileMetadataInput(
+                owner_user_id=9,
+                bucket="makershub-projects-local",
+                object_key="project_material/users/9/test.pdf",
+                purpose="project_material",
+                original_filename="test.pdf",
+                content_type="application/pdf",
+                size_bytes=len(file_data),
+                status="pending_upload",
+            ),
+        )
+        await session.commit()
+
+        result = await complete_file_upload(
+            session,
+            owner_user_id=9,
+            file_id=pending_file.id,
+            expected_sha256=expected_sha256,
+        )
+        await session.commit()
+
+    assert result.file_object.status == "active"
+    assert result.sha256 == expected_sha256
+    assert result.file_object.sha256 == expected_sha256
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_complete_file_upload_rejects_size_mismatch(monkeypatch) -> None:
+    """对象存储实际大小和上传意图不一致时不能激活文件。"""
+
+    class FakeMinioClient:
+        """测试用 MinIO 客户端。"""
+
+        def stat_object(self, _bucket_name, _object_name):
+            return SimpleNamespace(size=4096, content_type="application/pdf")
+
+        def get_object(self, _bucket_name, _object_name):
+            raise AssertionError("大小不一致时不应继续读取对象内容")
+
+    monkeypatch.setattr("app.modules.files.service.create_minio_client", lambda: FakeMinioClient())
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    _ = User
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as session:
+        pending_file = await register_file_metadata(
+            session,
+            FileMetadataInput(
+                owner_user_id=9,
+                bucket="makershub-projects-local",
+                object_key="project_material/users/9/test.pdf",
+                purpose="project_material",
+                original_filename="test.pdf",
+                content_type="application/pdf",
+                size_bytes=2048,
+                status="pending_upload",
+            ),
+        )
+        await session.commit()
+
+        with pytest.raises(AppError, match="文件大小与上传意图不一致") as exc_info:
+            await complete_file_upload(session, owner_user_id=9, file_id=pending_file.id)
+
+        await session.refresh(pending_file)
+
+    assert exc_info.value.code == "FILE_UPLOAD_SIZE_MISMATCH"
+    assert pending_file.status == "pending_upload"
 
     await engine.dispose()

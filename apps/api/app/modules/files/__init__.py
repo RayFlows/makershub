@@ -9,17 +9,21 @@
 from app.modules.files.models import FileObject
 from app.modules.files.service import (
     FileMetadataInput,
+    FileUploadCompletionResult,
     FileUploadIntentInput,
     build_object_key,
+    complete_file_upload,
     create_file_upload_intent,
     register_file_metadata,
 )
 
 __all__ = [
+    "FileUploadCompletionResult",
     "FileMetadataInput",
     "FileObject",
     "FileUploadIntentInput",
     "build_object_key",
+    "complete_file_upload",
     "create_file_upload_intent",
     "register_file_metadata",
 ]

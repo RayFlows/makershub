@@ -8,6 +8,7 @@ file_id 并补充自己的业务归属校验，不应自己拼对象存储路径
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import re
 import unicodedata
@@ -16,6 +17,7 @@ from datetime import datetime, timedelta
 from pathlib import PurePath
 from uuid import uuid4
 
+from minio.error import S3Error
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config.settings import get_settings
@@ -87,6 +89,14 @@ class FileUploadIntentResult:
     upload_url: str
     expires_in: int
     method: str = "PUT"
+
+
+@dataclass(frozen=True)
+class FileUploadCompletionResult:
+    """上传完成复核结果。"""
+
+    file_object: FileObject
+    sha256: str
 
 
 def normalize_filename(filename: str | None) -> str:
@@ -237,6 +247,25 @@ def calculate_sha256(file_data: bytes) -> str:
     return hashlib.sha256(file_data).hexdigest()
 
 
+def calculate_minio_object_sha256(client, bucket_name: str, object_key: str) -> str:
+    """
+    流式计算对象存储中文件的 sha256。
+
+    MinIO Python SDK 是同步客户端，这个函数会被放到线程池里执行。这里显式关闭
+    response，避免校验完成后 HTTP 连接泄漏。
+    """
+
+    response = client.get_object(bucket_name, object_key)
+    try:
+        digest = hashlib.sha256()
+        for chunk in response.stream(32 * 1024):
+            digest.update(chunk)
+        return digest.hexdigest()
+    finally:
+        response.close()
+        response.release_conn()
+
+
 async def register_file_metadata(
     session: AsyncSession,
     metadata: FileMetadataInput,
@@ -314,3 +343,110 @@ async def create_file_upload_intent(
         upload_url=upload_url,
         expires_in=UPLOAD_URL_EXPIRES_IN_SECONDS,
     )
+
+
+def normalize_uploaded_object_content_type(content_type: str | None) -> str:
+    """规范化对象存储返回的 Content-Type，空值保留为空字符串用于差异提示。"""
+
+    if not content_type:
+        return ""
+    try:
+        return normalize_content_type(content_type)
+    except AppError as exc:
+        raise AppError(
+            "FILE_UPLOAD_CONTENT_TYPE_MISMATCH",
+            "对象存储中的文件类型与上传意图不一致",
+            status_code=409,
+            details={"actual_content_type": content_type},
+        ) from exc
+
+
+async def inspect_uploaded_object(client, bucket_name: str, object_key: str):
+    """
+    读取对象存储中的对象元信息。
+
+    上传完成接口必须以对象存储里的真实对象为准，不能只相信客户端传回的成功状态。
+    """
+
+    try:
+        return await asyncio.to_thread(client.stat_object, bucket_name, object_key)
+    except S3Error as exc:
+        if exc.code in {"NoSuchKey", "NoSuchObject", "NotFound"}:
+            raise AppError(
+                "FILE_UPLOAD_OBJECT_MISSING",
+                "对象存储中尚未找到该文件，请确认上传完成后再提交",
+                status_code=409,
+            ) from exc
+        raise AppError(
+            "FILE_STORAGE_VERIFY_FAILED",
+            "对象存储校验失败，请稍后重试",
+            status_code=502,
+            details={"storage_error": exc.code},
+        ) from exc
+
+
+async def complete_file_upload(
+    session: AsyncSession,
+    *,
+    owner_user_id: int,
+    file_id: int,
+    expected_sha256: str | None = None,
+) -> FileUploadCompletionResult:
+    """
+    完成上传并复核对象存储中的真实文件。
+
+    预签名上传是两段式流程：创建意图只登记“允许写入哪里”，完成接口才确认
+    “对象确实写入、大小和类型未被篡改、hash 已落库”。业务模块只能引用
+    `active` 状态的文件，不能直接消费 `pending_upload`。
+    """
+
+    repository = FileRepository(session)
+    file_object = await repository.get_by_id(file_id)
+    if file_object is None:
+        raise AppError("FILE_NOT_FOUND", "文件记录不存在", status_code=404)
+    if file_object.owner_user_id != owner_user_id:
+        raise AppError("FILE_ACCESS_DENIED", "无权操作该文件", status_code=403)
+    if file_object.status == "active":
+        if file_object.sha256 is None:
+            raise AppError("FILE_UPLOAD_STATE_INVALID", "文件状态异常，缺少完整性校验结果", status_code=409)
+        if expected_sha256 is not None and file_object.sha256.lower() != expected_sha256.lower():
+            raise AppError(
+                "FILE_UPLOAD_HASH_MISMATCH",
+                "对象存储中的文件 hash 与客户端声明不一致",
+                status_code=409,
+            )
+        return FileUploadCompletionResult(file_object=file_object, sha256=file_object.sha256)
+    if file_object.status != "pending_upload":
+        raise AppError("FILE_UPLOAD_STATE_INVALID", "当前文件状态不允许完成上传", status_code=409)
+
+    client = create_minio_client()
+    object_info = await inspect_uploaded_object(client, file_object.bucket, file_object.object_key)
+    actual_size = object_info.size
+    actual_content_type = normalize_uploaded_object_content_type(object_info.content_type)
+    expected_content_type = normalize_uploaded_object_content_type(file_object.content_type)
+
+    if actual_size != file_object.size_bytes:
+        raise AppError(
+            "FILE_UPLOAD_SIZE_MISMATCH",
+            "对象存储中的文件大小与上传意图不一致",
+            status_code=409,
+            details={"expected_size_bytes": file_object.size_bytes, "actual_size_bytes": actual_size},
+        )
+    if actual_content_type != expected_content_type:
+        raise AppError(
+            "FILE_UPLOAD_CONTENT_TYPE_MISMATCH",
+            "对象存储中的文件类型与上传意图不一致",
+            status_code=409,
+            details={"expected_content_type": expected_content_type, "actual_content_type": actual_content_type},
+        )
+
+    sha256 = await asyncio.to_thread(calculate_minio_object_sha256, client, file_object.bucket, file_object.object_key)
+    if expected_sha256 is not None and sha256.lower() != expected_sha256.lower():
+        raise AppError(
+            "FILE_UPLOAD_HASH_MISMATCH",
+            "对象存储中的文件 hash 与客户端声明不一致",
+            status_code=409,
+        )
+
+    verified_file = await repository.mark_upload_verified(file_object, sha256=sha256)
+    return FileUploadCompletionResult(file_object=verified_file, sha256=sha256)

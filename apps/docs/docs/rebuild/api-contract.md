@@ -166,10 +166,11 @@ Authorization: Bearer <token>
 
 建议流程：
 
-1. 客户端请求上传凭证或直接上传文件；
-2. 后端保存文件元数据；
-3. 后端返回 `file_id` 和访问 URL；
-4. 业务接口引用 `file_id`。
+1. 客户端请求上传意图；
+2. 后端登记 `pending_upload` 文件元数据并返回短期预签名 PUT URL；
+3. 客户端 PUT 文件到对象存储；
+4. 客户端调用完成接口，后端复核真实对象大小、类型和 sha256；
+5. 业务接口只引用已经转为 `active` 的 `file_id`。
 
 第一阶段重点支持：
 
@@ -183,7 +184,9 @@ Authorization: Bearer <token>
 - 已完成 `files` 元数据表、对象 key 生成和元数据登记服务；
 - 已开放 `POST /api/v1/files/upload-intents` 创建短期预签名 PUT URL；
 - 上传意图会统一校验 `purpose`、`content_type`、`size_bytes` 和危险后缀；
-- 当前创建的文件状态为 `pending_upload`，上传完成复核、对象 hash 校验和业务文件引用仍待业务模块接入时开放。
+- 已开放 `POST /api/v1/files/{file_id}/complete` 复核对象真实大小、Content-Type，并记录 sha256；
+- 客户端 PUT 到预签名 URL 时必须使用上传意图中的 Content-Type，否则完成复核会拒绝；
+- 业务文件引用、病毒扫描或异步安全扫描仍待业务模块接入时开放。
 
 ## 第一阶段核心接口
 

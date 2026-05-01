@@ -13,8 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.interfaces.http.dependencies import CurrentUser, get_current_user
-from app.interfaces.http.v1.files.schemas import CreateUploadIntentRequest, UploadIntentResponse
-from app.modules.files.service import FileUploadIntentInput, create_file_upload_intent
+from app.interfaces.http.v1.files.schemas import (
+    CompletedUploadResponse,
+    CompleteUploadRequest,
+    CreateUploadIntentRequest,
+    UploadIntentResponse,
+)
+from app.modules.files.service import FileUploadIntentInput, complete_file_upload, create_file_upload_intent
 from app.shared.request_context import get_request_id
 from app.shared.responses import success_response
 
@@ -56,5 +61,40 @@ async def create_upload_intent(
         status=result.file_object.status,
         content_type=result.file_object.content_type,
         size_bytes=result.file_object.size_bytes,
+    )
+    return success_response(response.model_dump(), request_id=get_request_id(request))
+
+
+@router.post("/{file_id}/complete")
+async def complete_upload(
+    file_id: int,
+    request: Request,
+    payload: CompleteUploadRequest | None = None,
+    current: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """
+    完成文件上传。
+
+    客户端 PUT 到预签名 URL 成功后调用本接口。后端会从对象存储读取真实对象信息，
+    校验大小、Content-Type，并计算 sha256 后才允许业务模块引用该文件。
+    """
+
+    result = await complete_file_upload(
+        session,
+        owner_user_id=current.user.id,
+        file_id=file_id,
+        expected_sha256=payload.sha256 if payload is not None else None,
+    )
+    await session.commit()
+    file_object = result.file_object
+    response = CompletedUploadResponse(
+        file_id=file_object.id,
+        bucket=file_object.bucket,
+        object_key=file_object.object_key,
+        status=file_object.status,
+        content_type=file_object.content_type,
+        size_bytes=file_object.size_bytes,
+        sha256=result.sha256,
     )
     return success_response(response.model_dump(), request_id=get_request_id(request))

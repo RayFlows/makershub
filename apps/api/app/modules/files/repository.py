@@ -44,3 +44,16 @@ class FileRepository:
         file_object.status = "deleted"
         file_object.deleted_at = utc_now()
         return file_object
+
+    async def mark_upload_verified(self, file_object: FileObject, *, sha256: str) -> FileObject:
+        """
+        标记上传对象已经完成服务端复核。
+
+        预签名 URL 只能证明客户端被允许写入某个对象 key，不能证明最终写入的对象
+        与申请上传时声明的大小和类型一致。因此只有完成复核后，业务模块才能引用该文件。
+        """
+
+        file_object.status = "active"
+        file_object.sha256 = sha256
+        file_object.uploaded_at = utc_now()
+        return file_object

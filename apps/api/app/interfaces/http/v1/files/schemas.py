@@ -32,3 +32,21 @@ class UploadIntentResponse(BaseModel):
     status: str
     content_type: str | None
     size_bytes: int
+
+
+class CompleteUploadRequest(BaseModel):
+    """完成上传请求。"""
+
+    sha256: str | None = Field(None, pattern=r"^[a-fA-F0-9]{64}$")
+
+
+class CompletedUploadResponse(BaseModel):
+    """完成上传响应。"""
+
+    file_id: int
+    bucket: str
+    object_key: str
+    status: str
+    content_type: str | None
+    size_bytes: int
+    sha256: str
