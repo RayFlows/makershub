@@ -12,9 +12,10 @@ from time import perf_counter
 from uuid import uuid4
 
 from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+
 from app.core.logging import logger
 from app.core.logging.setup import LOG_CATEGORY_EXTRA_KEY, REQUEST_LOG_CATEGORY
-from starlette.middleware.base import BaseHTTPMiddleware
 
 REQUEST_ID_HEADER = "X-Request-ID"
 

@@ -12,7 +12,13 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from app.core.permissions import PermissionPoint, PermissionRegistry, PermissionRiskLevel, permission_registry
+from app.core.database.base import Base
+from app.core.permissions import (
+    PermissionPoint,
+    PermissionRegistry,
+    PermissionRiskLevel,
+    permission_registry,
+)
 from app.core.permissions.models import Permission, Role
 from app.core.permissions.repository import PermissionRepository
 from app.core.permissions.service import (
@@ -20,7 +26,6 @@ from app.core.permissions.service import (
     get_user_permission_summary,
     sync_registered_permissions,
 )
-from app.core.database.base import Base
 from app.modules.identity.models import User
 from app.modules.organization.models import Position, UserPosition
 
@@ -52,7 +57,7 @@ def test_permission_registry_rejects_duplicate_code() -> None:
     )
 
     registry.register(point)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="权限点重复注册"):
         registry.register(point)
 
 

@@ -8,12 +8,11 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.files.models import FileObject
+from app.shared.time import utc_now
 
 
 class FileRepository:
@@ -43,6 +42,5 @@ class FileRepository:
         """
 
         file_object.status = "deleted"
-        file_object.deleted_at = datetime.now(UTC)
+        file_object.deleted_at = utc_now()
         return file_object
-

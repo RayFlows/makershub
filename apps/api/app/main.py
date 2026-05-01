@@ -23,19 +23,23 @@ from app.core.config.settings import get_settings
 from app.core.database import close_database_engine
 from app.core.errors import register_exception_handlers
 from app.core.logging import logger, setup_logging
-from app.core.security import RateLimitMiddleware, RequestSizeLimitMiddleware, SecurityHeadersMiddleware
+from app.core.security import (
+    RateLimitMiddleware,
+    RequestSizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.interfaces.http.v1 import api_router
 from app.shared.request_context import RequestContextMiddleware, get_request_id
 from app.shared.responses import success_response
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """
     FastAPI 生命周期管理。
 
     Args:
-        app: 当前 FastAPI 应用实例。当前暂不直接使用，但保留参数以符合框架签名。
+        _app: 当前 FastAPI 应用实例。当前暂不直接使用，但保留参数以符合框架签名。
 
     注意:
         启动阶段暂不自动建表，数据库结构必须通过 Alembic 迁移管理。

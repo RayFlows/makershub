@@ -8,8 +8,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from typing import Iterable
+from collections.abc import Iterable
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.core.permissions.models import Permission, Role, RolePermission, UserRole
 from app.core.permissions.registry import PermissionPoint
 from app.modules.organization.models import Position, UserPosition
+from app.shared.time import utc_now
 
 
 class PermissionRepository:
@@ -229,7 +229,7 @@ class PermissionRepository:
             scope_type=scope_type,
             scope_id=scope_id,
             granted_by=granted_by,
-            granted_at=datetime.now(UTC),
+            granted_at=utc_now(),
         )
         self.session.add(user_role)
         return user_role
@@ -237,7 +237,7 @@ class PermissionRepository:
     async def revoke_user_role(self, user_role: UserRole) -> UserRole:
         """撤销一条用户角色授权，保留历史记录。"""
 
-        user_role.revoked_at = datetime.now(UTC)
+        user_role.revoked_at = utc_now()
         return user_role
 
     # --- 系统职务映射 ---

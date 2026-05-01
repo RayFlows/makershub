@@ -14,8 +14,15 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.identity.models import AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount
+from app.modules.identity.models import (
+    AuthSession,
+    EmailVerificationCode,
+    LocalAccount,
+    User,
+    WechatAccount,
+)
 from app.modules.organization.models import Position, UserPosition
+from app.shared.time import utc_now
 
 
 class IdentityRepository:
@@ -160,9 +167,7 @@ class IdentityRepository:
         目前只用于第一个 999 初始化；普通用户不能通过网页端直接调用这个流程注册。
         """
 
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
+        now = utc_now()
         user = User(display_name=display_name, status="active")
         account = LocalAccount(
             user=user,
@@ -187,9 +192,7 @@ class IdentityRepository:
     ) -> tuple[User, WechatAccount]:
         """小程序首次微信登录时创建用户主体和微信凭证。"""
 
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
+        now = utc_now()
         user = User(display_name=display_name, status="active", last_login_at=now)
         account = WechatAccount(
             user=user,
@@ -216,9 +219,7 @@ class IdentityRepository:
         unionid 冲突判断在 service 层完成，这里只做字段更新和 last_login_at 刷新。
         """
 
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
+        now = utc_now()
         if unionid and account.unionid is None:
             account.unionid = unionid
         if session_key_hash is not None:
@@ -239,9 +240,7 @@ class IdentityRepository:
     ) -> LocalAccount:
         """为已存在的微信用户主体创建待设置密码的邮箱账号。"""
 
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
+        now = utc_now()
         account = LocalAccount(
             user=user,
             email=email,
@@ -284,9 +283,7 @@ class IdentityRepository:
     ) -> EmailVerificationCode:
         """标记邮箱验证码已经消费。"""
 
-        from datetime import UTC, datetime
-
-        record.consumed_at = datetime.now(UTC)
+        record.consumed_at = utc_now()
         await self.session.flush()
         return record
 
@@ -298,9 +295,7 @@ class IdentityRepository:
     ) -> LocalAccount:
         """设置本地账号密码。"""
 
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
+        now = utc_now()
         account.password_hash = password_hash
         account.password_set_at = now
         await self.session.flush()
@@ -309,9 +304,7 @@ class IdentityRepository:
     async def mark_user_login(self, user: User) -> User:
         """刷新用户最近登录时间。"""
 
-        from datetime import UTC, datetime
-
-        user.last_login_at = datetime.now(UTC)
+        user.last_login_at = utc_now()
         await self.session.flush()
         return user
 
@@ -328,9 +321,7 @@ class IdentityRepository:
     ) -> AuthSession:
         """创建登录会话。"""
 
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
+        now = utc_now()
         auth_session = AuthSession(
             user_id=user_id,
             refresh_token_hash=refresh_token_hash,
@@ -357,9 +348,7 @@ class IdentityRepository:
     ) -> AuthSession:
         """轮换 refresh token，并刷新会话最后使用时间。"""
 
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
+        now = utc_now()
         auth_session.refresh_token_hash = refresh_token_hash
         auth_session.expires_at = expires_at
         auth_session.last_used_at = now
@@ -378,9 +367,7 @@ class IdentityRepository:
     ) -> AuthSession:
         """撤销登录会话。"""
 
-        from datetime import UTC, datetime
-
-        now = datetime.now(UTC)
+        now = utc_now()
         auth_session.status = "revoked"
         auth_session.revoked_at = now
         auth_session.revoke_reason = reason

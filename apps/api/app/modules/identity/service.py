@@ -20,9 +20,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config.settings import get_settings
 from app.core.errors import AppError
 from app.core.security import AccessToken, hash_password, issue_access_token, verify_password
-from app.modules.identity.models import AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount
+from app.modules.identity.models import (
+    AuthSession,
+    EmailVerificationCode,
+    LocalAccount,
+    User,
+    WechatAccount,
+)
 from app.modules.identity.repository import IdentityRepository
 from app.modules.organization.models import Position, UserPosition
+from app.shared.time import utc_now
 
 
 @dataclass(frozen=True)
@@ -261,7 +268,7 @@ async def issue_email_verification_code(
     normalized_email = normalize_email(email)
     normalized_purpose = normalize_email_code_purpose(purpose)
     settings = get_settings()
-    now = datetime.now(UTC)
+    now = utc_now()
     repository = IdentityRepository(session)
 
     if normalized_purpose == "bind_email":
@@ -357,7 +364,7 @@ async def consume_email_verification_code(
             code=normalized_code,
         ),
         user_id=user_id,
-        now=datetime.now(UTC),
+        now=utc_now(),
     )
     if record is None:
         raise AppError("EMAIL_CODE_INVALID_OR_EXPIRED", "验证码无效或已过期", status_code=422)
@@ -482,7 +489,7 @@ async def issue_auth_token_pair(
     normalized_client_type = normalize_session_label(client_type, field_name="client_type")
     settings = get_settings()
     refresh_token = generate_refresh_token()
-    refresh_expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+    refresh_expires_at = utc_now() + timedelta(days=settings.refresh_token_expire_days)
 
     repository = IdentityRepository(session)
     auth_session = await repository.create_auth_session(
@@ -537,7 +544,7 @@ async def refresh_auth_token_pair(
 
     settings = get_settings()
     next_refresh_token = generate_refresh_token()
-    refresh_expires_at = datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+    refresh_expires_at = utc_now() + timedelta(days=settings.refresh_token_expire_days)
     await repository.rotate_auth_session(
         auth_session,
         refresh_token_hash=hash_refresh_token(next_refresh_token),
@@ -661,7 +668,7 @@ def hash_email_verification_code(*, email: str, purpose: str, code: str) -> str:
     """计算邮箱验证码哈希。"""
 
     settings = get_settings()
-    message = f"{purpose}:{email}:{code}".encode("utf-8")
+    message = f"{purpose}:{email}:{code}".encode()
     return hmac.new(settings.jwt_secret_key.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
@@ -708,7 +715,7 @@ def ensure_auth_session_usable(auth_session: AuthSession) -> None:
         raise AppError("AUTH_SESSION_REVOKED", "登录会话已失效", status_code=401)
     if auth_session.status != "active":
         raise AppError("AUTH_SESSION_DISABLED", "登录会话不可用", status_code=401)
-    if ensure_aware_datetime(auth_session.expires_at) <= datetime.now(UTC):
+    if ensure_aware_datetime(auth_session.expires_at) <= utc_now():
         raise AppError("REFRESH_TOKEN_EXPIRED", "刷新令牌已过期", status_code=401)
 
 

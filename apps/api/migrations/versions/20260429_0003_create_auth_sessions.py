@@ -14,8 +14,8 @@ refresh token 只保存哈希值，避免数据库泄露后长期凭证直接可
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision = "20260429_0003"
 down_revision = "20260429_0002"

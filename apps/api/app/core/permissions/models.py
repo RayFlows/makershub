@@ -9,12 +9,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database.base import Base, IdMixin, TimestampMixin
+from app.shared.time import utc_now
 
 
 class Permission(Base, IdMixin, TimestampMixin):
@@ -102,7 +103,7 @@ class UserRole(Base, IdMixin, TimestampMixin):
     granted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(UTC),
+        default=lambda: utc_now(),
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

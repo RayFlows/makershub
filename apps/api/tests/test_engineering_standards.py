@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
 API_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -63,3 +62,20 @@ def test_python_infrastructure_directories_have_readme() -> None:
             missing_readme.append(directory.relative_to(API_ROOT).as_posix())
 
     assert missing_readme == []
+
+
+def test_application_code_uses_shared_utc_clock() -> None:
+    """业务代码应通过共享时间工具获取 UTC 当前时间。"""
+
+    allowed_files = {
+        API_ROOT / "app" / "shared" / "time" / "__init__.py",
+    }
+    violating_files: list[str] = []
+
+    for file in sorted((API_ROOT / "app").rglob("*.py")):
+        if file in allowed_files or "__pycache__" in file.parts:
+            continue
+        if "datetime.now(UTC)" in file.read_text(encoding="utf-8"):
+            violating_files.append(file.relative_to(API_ROOT).as_posix())
+
+    assert violating_files == []

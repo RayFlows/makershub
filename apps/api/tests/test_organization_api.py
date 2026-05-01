@@ -19,7 +19,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.database import get_session
 from app.core.database.base import Base
 from app.main import create_app
-from app.modules.identity.models import AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount
+from app.modules.identity.models import (
+    AuthSession,
+    EmailVerificationCode,
+    LocalAccount,
+    User,
+    WechatAccount,
+)
 from app.modules.organization.models import (
     Department,
     DepartmentMembership,

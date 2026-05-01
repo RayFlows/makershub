@@ -32,3 +32,19 @@ package = false
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "ARG", "DTZ", "PT"]
+ignore = [
+  # FastAPI 依赖注入需要在参数默认值里声明 Depends/Security/Query。
+  "B008",
+  # 显式 if/else 在令牌、认证等安全分支中比长三元表达式更容易审阅。
+  "SIM108"
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

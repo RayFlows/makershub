@@ -21,7 +21,11 @@ from app.interfaces.http.v1.organization.schemas import (
     UpdateMyMemberProfileRequest,
 )
 from app.modules.organization.models import Department, DepartmentMembership, MemberProfile
-from app.modules.organization.service import get_my_member_profile, list_active_departments, update_my_member_profile
+from app.modules.organization.service import (
+    get_my_member_profile,
+    list_active_departments,
+    update_my_member_profile,
+)
 from app.shared.request_context import get_request_id
 from app.shared.responses import success_response
 

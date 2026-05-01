@@ -14,7 +14,6 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.database.base import Base
-from app.modules.identity.models import User
 from app.modules.files.service import (
     FileMetadataInput,
     build_object_key,
@@ -22,6 +21,7 @@ from app.modules.files.service import (
     normalize_filename,
     register_file_metadata,
 )
+from app.modules.identity.models import User
 
 
 def test_build_object_key_uses_stable_safe_segments() -> None:

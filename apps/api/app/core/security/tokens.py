@@ -18,13 +18,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from jose import ExpiredSignatureError, JWTError, jwt
 
 from app.core.config.settings import get_settings
 from app.core.errors import AppError
+from app.shared.time import utc_now
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ def issue_access_token(
     """
 
     settings = get_settings()
-    now = datetime.now(UTC)
+    now = utc_now()
     if expires_delta is None:
         lifetime = timedelta(minutes=settings.access_token_expire_minutes)
     else:

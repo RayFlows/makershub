@@ -5,5 +5,7 @@
 约束：
 
 - 后端业务时间默认使用带时区的 UTC `datetime`；
+- 业务代码统一通过 `app.shared.time.utc_now()` 获取当前时间；
+- 除本目录实现外，不应在业务模块直接调用 `datetime.now(UTC)`；
 - 展示层需要北京时间时，由前端或接口适配层转换；
 - 过期时间、审计时间、积分流水时间不能使用 naive datetime。

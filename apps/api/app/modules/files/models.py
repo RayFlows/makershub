@@ -9,12 +9,13 @@ files 表保存对象存储元数据，业务表只引用 file_id，方便后续
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database.base import Base, IdMixin, TimestampMixin
+from app.shared.time import utc_now
 
 file_size_type = BigInteger().with_variant(Integer, "sqlite")
 
@@ -53,7 +54,7 @@ class FileObject(Base, IdMixin, TimestampMixin):
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=lambda: datetime.now(UTC),
+        default=lambda: utc_now(),
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -62,4 +63,3 @@ class FileObject(Base, IdMixin, TimestampMixin):
         Index("ix_files_owner_status", "owner_user_id", "status"),
         Index("ix_files_purpose_status", "purpose", "status"),
     )
-

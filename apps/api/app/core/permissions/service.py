@@ -13,10 +13,9 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions.repository import PermissionRepository
 from app.core.permissions.registry import permission_registry
+from app.core.permissions.repository import PermissionRepository
 from app.core.permissions.types import PermissionDecision
-
 
 SYSTEM_ADMIN_PERMISSION_CODES = frozenset(
     {

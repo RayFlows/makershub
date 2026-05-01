@@ -11,7 +11,12 @@ from app.core.security.middleware import (
     SecurityHeadersMiddleware,
 )
 from app.core.security.passwords import hash_password, verify_password
-from app.core.security.tokens import AccessToken, create_access_token, decode_access_token, issue_access_token
+from app.core.security.tokens import (
+    AccessToken,
+    create_access_token,
+    decode_access_token,
+    issue_access_token,
+)
 
 __all__ = [
     "AccessToken",

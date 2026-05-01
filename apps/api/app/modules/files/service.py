@@ -12,7 +12,7 @@ import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import PurePath
 from uuid import uuid4
 
@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.files.models import FileObject
 from app.modules.files.repository import FileRepository
+from app.shared.time import utc_now
 
 SAFE_FILENAME_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -75,7 +76,7 @@ def build_object_key(
     key 中包含用途、可选用户 ID、时间和随机段，避免不同业务模块各自发明命名规则。
     """
 
-    current = now or datetime.now(UTC)
+    current = now or utc_now()
     safe_purpose = SAFE_FILENAME_PATTERN.sub("_", purpose.strip().lower()).strip("._-") or "general"
     safe_name = normalize_filename(filename)
     random_part = uuid4().hex[:16]

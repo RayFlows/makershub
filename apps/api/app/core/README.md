@@ -51,3 +51,12 @@
 - 多实例生产环境仍必须在网关、Redis 或云厂商安全产品侧配置集中限流。
 
 这些能力是应用层兜底，不替代 HTTPS 终止、WAF、负载均衡、集中限流和安全告警。
+
+## 工程化守卫
+
+后端提交前必须通过 Ruff 和测试中的工程化守卫：
+
+- Ruff 负责基础语法、导入排序、常见 bug、pytest 写法和时区风险检查；
+- `tests/test_engineering_standards.py` 检查 Python 文件头、模块级说明、基础设施目录 README；
+- 业务代码必须通过 `app.shared.time.utc_now()` 获取当前 UTC 时间，不能在各模块直接调用 `datetime.now(UTC)`；
+- 这些规则是维护底线，不随具体业务迭代放宽。

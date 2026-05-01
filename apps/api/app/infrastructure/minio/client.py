@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import asyncio
 
-from minio import Minio
-
 from app.core.config.settings import get_settings
+from minio import Minio
 
 
 def create_minio_client() -> Minio:
