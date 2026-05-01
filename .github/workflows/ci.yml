@@ -51,7 +51,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
@@ -90,6 +90,8 @@ jobs:
           image: makershub-api:ci
           fail-build: true
           severity-cutoff: high
+          only-fixed: true
+          output-format: table
 
       - name: Scan web Docker image
         uses: anchore/scan-action@v7
@@ -97,6 +99,8 @@ jobs:
           image: makershub-web:ci
           fail-build: true
           severity-cutoff: high
+          only-fixed: true
+          output-format: table
 
       - name: Scan admin Docker image
         uses: anchore/scan-action@v7
@@ -104,6 +108,8 @@ jobs:
           image: makershub-admin:ci
           fail-build: true
           severity-cutoff: high
+          only-fixed: true
+          output-format: table
 
       - name: Scan docs Docker image
         uses: anchore/scan-action@v7
@@ -111,6 +117,8 @@ jobs:
           image: makershub-docs:ci
           fail-build: true
           severity-cutoff: high
+          only-fixed: true
+          output-format: table
 
       - name: Validate Docker Compose
         run: docker compose -f infra/docker/compose.dev.yml config

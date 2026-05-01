@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from jose import ExpiredSignatureError, JWTError, jwt
+import jwt
+from jwt import ExpiredSignatureError, InvalidTokenError
 
 from app.core.config.settings import get_settings
 from app.core.errors import AppError
@@ -114,7 +115,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
         )
     except ExpiredSignatureError as exc:
         raise AppError("ACCESS_TOKEN_EXPIRED", "访问令牌已过期", status_code=401) from exc
-    except JWTError as exc:
+    except InvalidTokenError as exc:
         raise AppError("INVALID_ACCESS_TOKEN", "访问令牌无效", status_code=401) from exc
 
     if payload.get("type") != "access":

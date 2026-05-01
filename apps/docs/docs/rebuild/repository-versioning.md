@@ -121,11 +121,14 @@ RayFlows/makershub
 - 执行后端 ruff 检查；
 - 执行后端 pytest；
 - 生成 Node 和 Python CycloneDX SBOM，并作为构建产物上传；
-- 构建 API、成员网页端、后台管理端和文档站 Docker 镜像，并对镜像执行高危及以上漏洞扫描；
+- 构建 API、成员网页端、后台管理端和文档站 Docker 镜像，并对镜像执行可修复高危及以上漏洞扫描；
 - 校验 Docker Compose 配置；
 - 校验 Docker Compose YAML。
 
 Dependabot 已配置 npm、uv、Docker 和 GitHub Actions 依赖更新。依赖更新进入 PR 后仍必须通过上述 CI。
+
+镜像扫描采用“可修复高危及以上漏洞阻断”的策略。基础镜像中被发行版标记为 `won't fix`
+的 CVE 不应让主线长期红灯，但需要在升级基础镜像、生产镜像签名和制品准入阶段持续跟踪。
 
 后续新增数据库迁移、业务模块、前端页面和部署脚本时，应把对应检查同步加入 CI。
 

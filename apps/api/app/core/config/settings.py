@@ -19,6 +19,7 @@ PRODUCTION_ENV = "production"
 LOCAL_ONLY_SECRET_VALUES = {
     "changemeinproduction",
     "change-me-in-local-env",
+    "change_me_in_local_env_only_32_bytes",
     "makershub",
     "makershub_minio",
 }
@@ -48,7 +49,7 @@ class Settings(BaseSettings):
 
     # --- 令牌配置 ---
     jwt_secret_key: str = Field(
-        "ChangeMeInProduction",
+        "change-me-in-local-env-only-32-bytes",
         validation_alias="JWT_SECRET_KEY",
     )
     jwt_algorithm: str = Field("HS256", validation_alias="JWT_ALGORITHM")
