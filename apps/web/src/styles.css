@@ -391,8 +391,8 @@ textarea {
 .member-layout {
   width: min(1240px, 100%);
   display: grid;
-  grid-template-columns: 216px minmax(0, 1fr);
-  gap: 30px;
+  grid-template-columns: 184px minmax(0, 1fr);
+  gap: 24px;
   margin: 0 auto;
   padding: 28px 32px 48px;
 }
@@ -402,38 +402,59 @@ textarea {
   top: 96px;
   align-self: start;
   display: grid;
-  gap: 4px;
-  padding: 4px;
+  gap: 8px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 14px;
+  border-color: rgba(180, 90, 43, 0.2);
+  background: linear-gradient(180deg, rgba(255, 249, 242, 0.98) 0%, rgba(251, 244, 236, 0.94) 100%);
+  box-shadow:
+    0 20px 54px rgba(53, 46, 39, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(18px);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
 .member-nav-button {
   width: 100%;
-  height: 42px;
+  min-height: 42px;
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 12px;
-  border: 0;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid rgba(180, 90, 43, 0.14);
   border-radius: 12px;
-  background: transparent;
-  color: var(--mh-muted);
+  background: rgba(255, 251, 246, 0.96);
+  color: var(--mh-ink);
   font-size: 14px;
   font-weight: 500;
   text-align: left;
   cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    0 1px 0 rgba(180, 90, 43, 0.04);
   transition:
-    background-color 140ms ease,
-    color 140ms ease;
+    background 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
 }
 
 .member-nav-button:hover {
-  background: #eef2f4;
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.98);
   color: var(--mh-ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 8px 18px rgba(53, 46, 39, 0.08);
 }
 
 .member-nav-button.is-active {
-  background: rgba(0, 173, 181, 0.12);
-  color: var(--mh-ink);
+  border-color: rgba(23, 20, 18, 0.16);
+  background: linear-gradient(135deg, #2f2a25 0%, #171412 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(20, 16, 13, 0.16);
 }
 
 .member-nav-button svg {
@@ -478,15 +499,6 @@ textarea {
 .muted {
   margin: 0;
   color: var(--mh-muted);
-}
-
-.channel-tag {
-  margin-inline-end: 0;
-  border: 0;
-  border-radius: 999px;
-  color: #057b82;
-  background: rgba(0, 173, 181, 0.1);
-  font-weight: 500;
 }
 
 .page-intro {
@@ -661,13 +673,13 @@ textarea {
     display: flex;
     gap: 6px;
     overflow-x: auto;
-    padding: 0 0 4px;
+    padding: 10px;
   }
 
   .member-nav-button {
     width: auto;
     min-width: max-content;
-    padding: 0 13px;
+    padding: 9px 13px;
   }
 
   .profile-hero {

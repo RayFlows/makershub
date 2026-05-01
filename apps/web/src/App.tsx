@@ -10,7 +10,6 @@ import {
   Space,
   Spin,
   Statistic,
-  Tag,
   Typography,
 } from "antd";
 import {
@@ -513,7 +512,6 @@ function MemberShell({
         </div>
 
         <div className="topbar-actions">
-          <Tag className="channel-tag">{channel || "active"}</Tag>
           <div className="account-chip" title={user.email || user.display_name}>
             <Avatar size={30} src={user.avatar_url || undefined} className="account-avatar">
               {avatarText}
@@ -527,7 +525,7 @@ function MemberShell({
       </header>
 
       <div className="member-layout">
-        <nav className="member-nav" aria-label="成员端导航">
+        <nav className="surface panel member-nav" aria-label="成员端导航">
           {menuItems.map((item) => (
             <button
               aria-current={item.key === "profile" ? "page" : undefined}
