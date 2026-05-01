@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Avatar,
@@ -499,6 +499,26 @@ function MemberShell({
   onLogout: () => void;
 }) {
   const avatarText = user.display_name.slice(0, 1);
+  const navRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    function syncNavRailPosition() {
+      const navRail = navRef.current;
+      if (!navRail) return;
+
+      const safeInset = 18;
+      const viewportHeight = window.innerHeight;
+      const railHeight = navRail.offsetHeight;
+      const centeredOffset = Math.max(safeInset, Math.floor((viewportHeight - railHeight) / 2));
+
+      navRail.style.setProperty("--nav-rail-top", `${centeredOffset}px`);
+      navRail.style.setProperty("--nav-rail-max-height", `${Math.max(220, viewportHeight - safeInset * 2)}px`);
+    }
+
+    syncNavRailPosition();
+    window.addEventListener("resize", syncNavRailPosition);
+    return () => window.removeEventListener("resize", syncNavRailPosition);
+  }, []);
 
   return (
     <div className="member-shell">
@@ -525,18 +545,21 @@ function MemberShell({
       </header>
 
       <div className="member-layout">
-        <nav className="surface panel member-nav" aria-label="成员端导航">
-          {menuItems.map((item) => (
-            <button
-              aria-current={item.key === "profile" ? "page" : undefined}
-              className={item.key === "profile" ? "member-nav-button is-active" : "member-nav-button"}
-              key={item.key}
-              type="button"
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          ))}
+        <nav className="surface panel member-nav" aria-label="成员端导航" ref={navRef}>
+          <p className="eyebrow member-nav-title">导航</p>
+          <div className="member-nav-list">
+            {menuItems.map((item) => (
+              <button
+                aria-current={item.key === "profile" ? "page" : undefined}
+                className={item.key === "profile" ? "member-nav-button is-active" : "member-nav-button"}
+                key={item.key}
+                type="button"
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
         </nav>
 
         <main className="member-main">
