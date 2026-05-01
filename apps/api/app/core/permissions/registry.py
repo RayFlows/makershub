@@ -105,6 +105,13 @@ def register_core_permissions() -> None:
             risk_level=PermissionRiskLevel.HIGH,
         ),
         PermissionPoint(
+            code="system.permission.manage",
+            name="维护权限与角色",
+            module="system",
+            description="维护系统权限、角色和用户授权关系。",
+            risk_level=PermissionRiskLevel.CRITICAL,
+        ),
+        PermissionPoint(
             code="organization.member.manage",
             name="维护成员资料",
             module="organization",
@@ -131,6 +138,20 @@ def register_core_permissions() -> None:
             module="system",
             description="受控恢复唯一 999 超级管理员，只能由运维脚本或灾备流程触发。",
             risk_level=PermissionRiskLevel.CRITICAL,
+        ),
+        PermissionPoint(
+            code="files.upload",
+            name="上传文件",
+            module="files",
+            description="允许通过统一文件接口上传业务文件。",
+            risk_level=PermissionRiskLevel.MEDIUM,
+        ),
+        PermissionPoint(
+            code="files.manage",
+            name="维护文件元数据",
+            module="files",
+            description="维护文件元数据、状态和存储对象引用。",
+            risk_level=PermissionRiskLevel.HIGH,
         ),
     ]:
         if permission_registry.get(point.code) is None:

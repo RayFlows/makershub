@@ -17,6 +17,8 @@ import getpass
 import os
 
 from app.core.database.session import AsyncSessionLocal, close_database_engine
+from app.core.permissions.service import sync_registered_permissions
+from app.modules.audit.service import AuditLogEntry, record_audit_log
 from app.modules.identity.service import bootstrap_super_admin
 
 
@@ -36,6 +38,10 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap_parser.add_argument("--email", required=True)
     bootstrap_parser.add_argument("--display-name", default="系统超级管理员")
     bootstrap_parser.add_argument("--password-env", default="INITIAL_SUPER_ADMIN_PASSWORD")
+    bootstrap_parser.add_argument("--reason", default="初始化唯一 999 超级管理员")
+
+    # --- 同步权限种子 ---
+    subparsers.add_parser("sync-permissions")
 
     return parser
 
@@ -64,9 +70,39 @@ async def run_bootstrap_super_admin(args: argparse.Namespace) -> None:
             password=password,
             display_name=args.display_name,
         )
+        await record_audit_log(
+            session,
+            AuditLogEntry(
+                actor_id=result.user.id,
+                action="identity.super_admin.bootstrap",
+                target_type="user",
+                target_id=str(result.user.id),
+                after_snapshot={
+                    "email": result.local_account.email,
+                    "position": "999",
+                },
+                extra={"operator": getpass.getuser()},
+                reason=args.reason,
+                risk_level="critical",
+            ),
+        )
         await session.commit()
 
     print(f"created={result.created} user_id={result.user.id} email={result.local_account.email}")
+
+
+async def run_sync_permissions() -> None:
+    """
+    同步权限点和系统预置角色。
+
+    该命令用于本地开发、测试环境修复，或新增权限点后在迁移外做一次幂等同步。
+    """
+
+    async with AsyncSessionLocal() as session:
+        result = await sync_registered_permissions(session)
+        await session.commit()
+
+    print(f"permissions={result.permission_count} roles={result.role_count}")
 
 
 async def main() -> None:
@@ -78,6 +114,8 @@ async def main() -> None:
     try:
         if args.command == "bootstrap-super-admin":
             await run_bootstrap_super_admin(args)
+        elif args.command == "sync-permissions":
+            await run_sync_permissions()
     finally:
         # CLI 进程结束前主动释放连接池，避免异步 engine 残留告警。
         await close_database_engine()

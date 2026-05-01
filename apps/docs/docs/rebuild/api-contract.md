@@ -137,6 +137,14 @@ Authorization: Bearer <token>
 - 用户是否拥有目标权限点；
 - 用户权限是否覆盖目标作用域，例如本部门、本项目、本场地或全局。
 
+当前实现：
+
+- 已落地 `permissions`、`roles`、`role_permissions`、`user_roles`；
+- 已落地 `require_permission(...)`；
+- `/auth/me` 和 `/permissions/me` 返回当前用户权限摘要；
+- `999` 拥有全部注册权限点；
+- `998` 只桥接到底层运维权限，不自动拥有日常业务审批权限。
+
 ### 幂等
 
 以下场景必须具备幂等能力：
@@ -168,6 +176,11 @@ Authorization: Bearer <token>
 - 项目材料；
 - 开源协议签署文件；
 - 结项材料。
+
+当前实现：
+
+- 已完成 `files` 元数据表、对象 key 生成和元数据登记服务；
+- 实际上传接口、预签名 URL 和业务文件引用仍待业务模块接入时开放。
 
 ## 第一阶段核心接口
 
@@ -220,6 +233,7 @@ Authorization: Bearer <token>
 - 已完成短期 access token、长期 refresh token、会话表、refresh token 轮换和退出撤销；
 - 已完成已登录用户绑定邮箱的验证码发送、限流、消费和 `/api/v1/auth/email/bind`；
 - 已完成网页端首次邮箱验证码登录、首次设置密码和邮箱密码登录接口；
+- 已完成绑定邮箱、首次邮箱登录、设置密码、退出登录的审计写入；
 - 密码重置和更换邮箱接口仍待实现。
 
 ### 组织与成员
@@ -255,8 +269,9 @@ Authorization: Bearer <token>
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
+| `GET` | `/api/v1/permissions/me` | 获取当前用户权限摘要 |
 | `GET` | `/api/v1/permissions` | 查看权限点 |
-| `GET` | `/api/v1/roles` | 查看角色 |
+| `GET` | `/api/v1/permissions/roles` | 查看角色 |
 | `POST` | `/api/v1/roles` | 创建角色 |
 | `PATCH` | `/api/v1/roles/{role_id}` | 修改角色 |
 | `POST` | `/api/v1/users/{user_id}/roles` | 给用户授予角色或权限作用域 |
@@ -267,6 +282,30 @@ Authorization: Bearer <token>
 - 普通业务权限由权限点和作用域控制；
 - `998/999` 只处理底层系统管理和异常兜底；
 - 唯一 `999` 初始化应优先通过脚本或受控初始化流程完成。
+
+当前实现状态：
+
+- 已完成权限数据库模型、迁移种子和默认角色；
+- 已完成 `/api/v1/permissions/me`、`/api/v1/permissions`、`/api/v1/permissions/roles`；
+- 权限写接口尚未开放，必须先接入权限变更审计。
+
+### 审计
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| `GET` | `/api/v1/audit/logs` | 查看最近审计日志 |
+
+规则：
+
+- 运行日志不等于审计日志；
+- 审计日志默认只追加；
+- 高风险写操作必须记录操作人、目标对象、结果、原因和必要快照。
+
+当前实现状态：
+
+- 已完成 `audit_logs` 数据模型和迁移；
+- 已完成 `record_audit_log(...)` 服务；
+- 已完成审计日志读取接口，需要 `system.audit.view`。
 
 ### 积分与账本
 

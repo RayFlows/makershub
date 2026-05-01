@@ -17,6 +17,9 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config.settings import get_settings
 from app.core.database.base import Base
+from app.core.permissions import models as permission_models  # noqa: F401
+from app.modules.audit import models as audit_models  # noqa: F401
+from app.modules.files import models as file_models  # noqa: F401
 from app.modules.identity import models as identity_models  # noqa: F401
 from app.modules.organization import models as organization_models  # noqa: F401
 

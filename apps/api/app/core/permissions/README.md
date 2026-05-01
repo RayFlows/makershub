@@ -9,20 +9,25 @@
 - `PermissionPoint`：权限点定义；
 - `PermissionRegistry`：内存权限点注册表；
 - `PermissionDecision`：显式权限判断结果；
+- `permissions`、`roles`、`role_permissions`、`user_roles` ORM 模型；
+- `sync_registered_permissions(...)`：权限点和系统角色幂等同步；
+- `check_user_permission(...)`：统一权限判断；
+- `require_permission(...)`：FastAPI 权限依赖；
 - 首批核心权限点：
   - `system.admin.access`
   - `system.audit.view`
+  - `system.permission.manage`
   - `organization.member.manage`
   - `organization.department.manage`
   - `organization.position.manage`
   - `system.super_admin.recover`
+  - `files.upload`
+  - `files.manage`
 
 ## 尚未落地
 
-- `permissions` 数据库表和迁移种子；
-- 角色、用户授权和角色权限关系；
-- 部门、项目、资源等作用域授权；
-- FastAPI 权限依赖；
+- 权限变更写接口；
+- 部门、项目、资源等具体业务作用域规则；
 - 后台菜单权限过滤；
 - 权限变更审计。
 

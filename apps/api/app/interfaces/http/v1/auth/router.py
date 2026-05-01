@@ -18,9 +18,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config.settings import get_settings
 from app.core.database import get_session
 from app.core.errors import AppError
+from app.core.permissions.service import get_user_permission_summary
 from app.infrastructure.email import send_email_verification_code
 from app.infrastructure.wechat import WechatSession, exchange_code_for_session
-from app.interfaces.http.dependencies import CurrentUser, get_current_user
+from app.interfaces.http.dependencies import (
+    CurrentUser,
+    get_current_user,
+    resolve_current_user_from_authorization,
+)
 from app.interfaces.http.v1.auth.schemas import (
     BindEmailRequest,
     BindEmailResponse,
@@ -37,6 +42,7 @@ from app.interfaces.http.v1.auth.schemas import (
     UserSummary,
     WechatLoginRequest,
 )
+from app.modules.audit.service import AuditLogEntry, record_audit_log
 from app.modules.identity.service import (
     AuthTokenPair,
     bind_email_with_code,
@@ -184,10 +190,25 @@ async def logout(
 ):
     """退出登录并撤销 refresh token 对应的登录会话。"""
 
-    await revoke_auth_token_pair(
+    auth_session = await revoke_auth_token_pair(
         session,
         refresh_token=payload.refresh_token,
         reason="logout",
+    )
+    await record_audit_log(
+        session,
+        AuditLogEntry(
+            actor_id=auth_session.user_id,
+            action="identity.logout",
+            target_type="auth_session",
+            target_id=str(auth_session.id),
+            after_snapshot={"status": auth_session.status, "reason": auth_session.revoke_reason},
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+            request_id=get_request_id(request),
+            reason="用户主动退出登录",
+            risk_level="low",
+        ),
     )
     await session.commit()
     return success_response({"revoked": True}, request_id=get_request_id(request))
@@ -208,7 +229,10 @@ async def send_email_code(
 
     user_id = None
     if payload.purpose.strip().lower() == "bind_email":
-        current = await get_current_user(authorization=authorization, session=session)
+        current = await resolve_current_user_from_authorization(
+            authorization=authorization,
+            session=session,
+        )
         user_id = current.user.id
 
     result, code = await issue_email_verification_code(
@@ -250,6 +274,21 @@ async def bind_email(
         email=payload.email,
         code=payload.code,
     )
+    await record_audit_log(
+        session,
+        AuditLogEntry(
+            actor_id=current.user.id,
+            action="identity.email.bind",
+            target_type="user",
+            target_id=str(current.user.id),
+            after_snapshot={"email": result.local_account.email},
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+            request_id=get_request_id(request),
+            reason="用户在小程序端绑定网页端登录邮箱",
+            risk_level="medium",
+        ),
+    )
     await session.commit()
     data = BindEmailResponse(
         email=result.local_account.email,
@@ -285,6 +324,21 @@ async def email_first_login(
         user_agent=request.headers.get("user-agent"),
         ip_address=get_client_ip(request),
     )
+    await record_audit_log(
+        session,
+        AuditLogEntry(
+            actor_id=result.user.id,
+            action="identity.email.first_login",
+            target_type="user",
+            target_id=str(result.user.id),
+            after_snapshot={"email": result.local_account.email, "password_required": True},
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+            request_id=get_request_id(request),
+            reason="网页端首次邮箱验证码登录",
+            risk_level="medium",
+        ),
+    )
     await session.commit()
     data = build_first_login_response(token_pair)
     return success_response(data.model_dump(mode="json"), request_id=get_request_id(request))
@@ -303,6 +357,22 @@ async def set_password(
         session,
         user_id=current.user.id,
         password=payload.password,
+    )
+    await record_audit_log(
+        session,
+        AuditLogEntry(
+            actor_id=current.user.id,
+            action="identity.password.set",
+            target_type="local_account",
+            target_id=str(result.local_account.id),
+            before_snapshot={"password_set": False},
+            after_snapshot={"password_set": True},
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+            request_id=get_request_id(request),
+            reason="用户首次设置网页端密码",
+            risk_level="high",
+        ),
     )
     await session.commit()
     data = SetPasswordResponse(
@@ -342,6 +412,7 @@ async def password_login(
 async def get_me(
     request: Request,
     current: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
 ):
     """
     获取当前登录用户摘要。
@@ -349,11 +420,17 @@ async def get_me(
     该接口用于前端启动时校验 token 是否仍然有效，并获取最小用户信息。
     """
 
+    permissions = await get_user_permission_summary(session, user_id=current.user.id)
     return success_response(
         {
             "user": build_user_summary(current.user).model_dump(),
             "claims": {
                 "channel": current.claims.get("channel"),
+            },
+            "permissions": {
+                "codes": list(permissions.permissions),
+                "is_super_admin": permissions.is_super_admin,
+                "is_system_operator": permissions.is_system_operator,
             },
         },
         request_id=get_request_id(request),

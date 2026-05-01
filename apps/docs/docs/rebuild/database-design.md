@@ -261,11 +261,13 @@
 - `name`；
 - `description`；
 - `module`；
-- `risk_level`。
+- `risk_level`；
+- `status`。
 
 说明：
 
 - 接口鉴权检查权限点，不直接使用 `identity_code >= 1` 这类数字比较。
+- 当前迁移已创建 `permissions` 表，并写入系统、组织、审计和文件第一批权限点。
 
 ### `roles`
 
@@ -277,7 +279,15 @@
 - `code`；
 - `name`；
 - `description`；
-- `is_system`。
+- `is_system`；
+- `status`。
+
+当前预置角色：
+
+- `system_super_admin`：对应唯一 `999` 兜底身份，包含全部注册权限；
+- `system_operator`：对应 `998` 底层运维身份，只包含系统运维权限；
+- `organization_manager`：维护成员资料、部门和职务；
+- `auditor`：查看审计日志。
 
 ### `role_permissions`
 
@@ -306,6 +316,38 @@
 说明：
 
 - 作用域可以是全局、部门、项目、场地等。
+- `998/999` 仍作为系统职务保存在 `user_positions` 中；权限服务会把它们桥接到权限点，
+  但不把 `998` 自动视为日常业务审批角色。
+
+## 文件
+
+### `files`
+
+文件元数据表。
+
+核心字段：
+
+- `id`；
+- `owner_user_id`；
+- `purpose`；
+- `visibility`；
+- `storage_provider`；
+- `bucket`；
+- `object_key`；
+- `original_filename`；
+- `content_type`；
+- `size_bytes`；
+- `sha256`；
+- `status`；
+- `uploaded_at`；
+- `deleted_at`。
+
+说明：
+
+- 文件内容仍保存在 MinIO 等对象存储中；
+- 业务表只保存 `file_id`，不直接保存对象存储路径；
+- `bucket + object_key` 唯一；
+- 删除默认先标记元数据状态，物理删除失败时后续通过审计或补偿任务处理。
 
 ## 积分与账本
 
@@ -629,9 +671,20 @@
 - `target_id`；
 - `before_snapshot`；
 - `after_snapshot`；
-- `ip`；
+- `extra`；
+- `ip_address`；
 - `user_agent`；
+- `request_id`；
+- `reason`；
+- `result`；
+- `risk_level`；
 - `created_at`。
+
+说明：
+
+- 审计日志只追加，不提供通用更新入口；
+- 已完成 `audit_logs` 模型、迁移和审计服务；
+- 绑定邮箱、首次邮箱登录、设置密码、退出登录和初始化 `999` 已写入审计。
 
 ### `notification_messages`
 
@@ -655,5 +708,5 @@
 - 字段类型、长度和索引名称；
 - Alembic 迁移命名规范；
 - 软删除和归档策略的统一实现；
-- 审计快照字段是否使用 JSON；
-- 文件表和 MinIO 对象元数据表设计。
+- 文件预签名 URL 和统一上传接口设计；
+- 审计日志归档、查询过滤和敏感快照脱敏策略。

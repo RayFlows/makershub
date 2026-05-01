@@ -80,6 +80,8 @@ def test_wechat_dev_login_returns_token_and_me(auth_client: TestClient) -> None:
     assert me_body["data"]["user"]["id"] == user_id
     assert me_body["data"]["user"]["email"] is None
     assert me_body["data"]["claims"]["channel"] == "wechat"
+    assert me_body["data"]["permissions"]["codes"] == []
+    assert me_body["data"]["permissions"]["is_super_admin"] is False
 
 
 def test_refresh_token_rotates_refresh_token(auth_client: TestClient) -> None:

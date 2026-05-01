@@ -2,8 +2,9 @@
 """
 HTTP 依赖项
 
-这里放接口层通用依赖，例如当前登录用户解析。
-依赖项只处理协议相关内容，业务权限判断后续会下沉到权限模块。
+这里放接口层通用依赖，例如当前登录用户解析和权限依赖。
+依赖项只处理 HTTP 协议、FastAPI 安全声明和错误转换；权限判断本身由
+core.permissions 服务层负责。
 """
 
 from __future__ import annotations
@@ -11,15 +12,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Annotated, Any
 
-from fastapi import Depends, Header
+from fastapi import Depends, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.core.errors import AppError
+from app.core.permissions.service import check_user_permission
 from app.core.security import decode_access_token
 from app.modules.identity.models import User
 from app.modules.identity.repository import IdentityRepository
 from app.modules.identity.service import validate_auth_session
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 @dataclass(frozen=True)
@@ -30,15 +35,16 @@ class CurrentUser:
     claims: dict[str, Any]
 
 
-async def get_current_user(
-    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+async def resolve_current_user_from_authorization(
+    *,
+    authorization: str | None,
     session: AsyncSession = Depends(get_session),
 ) -> CurrentUser:
     """
-    从 Authorization 请求头解析当前用户。
+    从 Authorization 字符串解析当前用户。
 
     Args:
-        authorization: Bearer token 请求头。
+        authorization: Bearer token 请求头原始值。
         session: 当前请求数据库会话。
 
     Returns:
@@ -76,3 +82,73 @@ async def get_current_user(
         raise AppError("AUTH_USER_DISABLED", "用户状态不可用", status_code=403)
 
     return CurrentUser(user=user, claims=claims)
+
+
+async def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Security(bearer_scheme)] = None,
+    session: AsyncSession = Depends(get_session),
+) -> CurrentUser:
+    """
+    FastAPI 当前用户依赖。
+
+    使用 HTTPBearer 声明安全方案后，Swagger 会给依赖该函数的接口显示锁标识；
+    实际 token 和会话校验仍复用 resolve_current_user_from_authorization。
+    """
+
+    if credentials is None:
+        authorization = None
+    else:
+        authorization = f"{credentials.scheme} {credentials.credentials}"
+
+    return await resolve_current_user_from_authorization(
+        authorization=authorization,
+        session=session,
+    )
+
+
+def require_permission(
+    permission_code: str,
+    *,
+    scope_type: str | None = None,
+    scope_id: int | None = None,
+):
+    """
+    构造权限点依赖。
+
+    Args:
+        permission_code: 需要检查的稳定权限点 code。
+        scope_type: 可选作用域类型，例如 global、department、project。
+        scope_id: 可选作用域 ID。
+
+    Returns:
+        FastAPI 依赖函数，验证通过时返回 CurrentUser。
+    """
+
+    async def dependency(
+        current: CurrentUser = Depends(get_current_user),
+        session: AsyncSession = Depends(get_session),
+    ) -> CurrentUser:
+        """执行权限检查并把拒绝结果转换成统一 403。"""
+
+        decision = await check_user_permission(
+            session,
+            user_id=current.user.id,
+            permission_code=permission_code,
+            scope_type=scope_type,
+            scope_id=scope_id,
+        )
+        if not decision.allowed:
+            raise AppError(
+                "PERMISSION_DENIED",
+                "当前用户无权执行该操作",
+                status_code=403,
+                details={
+                    "permission_code": permission_code,
+                    "reason": decision.reason,
+                    "scope_type": scope_type,
+                    "scope_id": scope_id,
+                },
+            )
+        return current
+
+    return dependency
