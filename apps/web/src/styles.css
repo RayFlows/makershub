@@ -293,6 +293,9 @@ textarea {
 }
 
 .member-shell {
+  --member-nav-left: 24px;
+  --member-nav-width: clamp(176px, 14vw, 208px);
+  --member-nav-gap: 38px;
   min-height: 100vh;
   background:
     radial-gradient(circle at top left, rgba(208, 109, 60, 0.08), transparent 22rem),
@@ -304,7 +307,7 @@ textarea {
   position: sticky;
   top: 0;
   z-index: 30;
-  min-height: 92px;
+  min-height: 96px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -332,8 +335,8 @@ textarea {
 }
 
 .brand-logo {
-  width: 74px;
-  height: 74px;
+  width: 82px;
+  height: 82px;
   flex: none;
   object-fit: contain;
 }
@@ -341,7 +344,7 @@ textarea {
 .brand-copy strong {
   display: block;
   color: #201c17;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 650;
   line-height: 1.25;
 }
@@ -365,7 +368,7 @@ textarea {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.88);
   color: #5b554f;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -394,18 +397,18 @@ textarea {
 .member-layout {
   width: 100%;
   margin: 0 auto;
-  padding: 28px 32px 48px calc(clamp(132px, 12vw, 168px) + 44px);
+  padding: 30px 36px 52px calc(var(--member-nav-left) + var(--member-nav-width) + var(--member-nav-gap));
 }
 
 .member-nav {
   position: fixed;
-  left: 22px;
+  left: var(--member-nav-left);
   top: var(--nav-rail-top, 22px);
   z-index: 20;
-  width: clamp(132px, 12vw, 168px);
+  width: var(--member-nav-width);
   max-height: var(--nav-rail-max-height, calc(100vh - 44px));
   overflow-y: auto;
-  padding: 14px;
+  padding: 16px;
   border-color: rgba(180, 90, 43, 0.2);
   background: linear-gradient(180deg, rgba(255, 249, 242, 0.98) 0%, rgba(251, 244, 236, 0.94) 100%);
   box-shadow:
@@ -417,31 +420,33 @@ textarea {
 }
 
 .member-nav-title {
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid rgba(180, 90, 43, 0.12);
   color: #b35e34;
+  font-size: 0.8rem;
 }
 
 .member-nav-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
 }
 
 .member-nav-button {
   width: 100%;
-  min-height: 42px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 10px 12px;
+  gap: 11px;
+  padding: 11px 14px;
   border: 1px solid rgba(180, 90, 43, 0.14);
-  border-radius: 12px;
+  border-radius: 13px;
   background: rgba(255, 251, 246, 0.96);
   color: #201c17;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 560;
+  line-height: 1.25;
   text-align: left;
   cursor: pointer;
   box-shadow:
@@ -471,11 +476,12 @@ textarea {
 }
 
 .member-nav-button svg {
+  flex: none;
   color: currentColor;
 }
 
 .member-main {
-  width: min(1010px, 100%);
+  width: min(1060px, 100%);
   min-width: 0;
   display: grid;
   align-content: start;
@@ -502,7 +508,7 @@ textarea {
 }
 
 .panel {
-  padding: 18px;
+  padding: 20px;
 }
 
 .eyebrow {
@@ -536,12 +542,13 @@ textarea {
 }
 
 .page-title {
-  font-size: clamp(26px, 3vw, 34px);
+  font-size: clamp(29px, 3.1vw, 38px);
 }
 
 .page-summary {
   max-width: 58ch;
-  margin-top: 7px;
+  margin-top: 8px;
+  font-size: 15px;
 }
 
 .status-pill {
@@ -558,7 +565,7 @@ textarea {
 }
 
 .profile-hero {
-  min-height: 132px;
+  min-height: 146px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -574,7 +581,7 @@ textarea {
 .profile-header h1 {
   margin: 0 0 4px;
   color: #201c17;
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 650;
   line-height: 1.24;
 }
@@ -605,7 +612,7 @@ textarea {
 
 .status-panel {
   position: relative;
-  min-height: 104px;
+  min-height: 112px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -622,7 +629,7 @@ textarea {
 
 .status-panel span {
   color: #5b554f;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .status-panel strong {
@@ -656,7 +663,7 @@ textarea {
   gap: 8px;
   margin-bottom: 14px;
   color: #201c17;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 650;
 }
 
@@ -665,7 +672,7 @@ textarea {
 }
 
 .work-panel {
-  min-height: 104px;
+  min-height: 112px;
   padding: 18px;
 }
 
@@ -678,6 +685,12 @@ textarea {
 }
 
 @media (max-width: 900px) {
+  .member-shell {
+    --member-nav-left: 20px;
+    --member-nav-width: clamp(160px, 20vw, 184px);
+    --member-nav-gap: 30px;
+  }
+
   .member-topbar {
     align-items: flex-start;
     flex-direction: column;
@@ -691,18 +704,20 @@ textarea {
   }
 
   .member-layout {
-    padding: 20px 20px 20px calc(clamp(124px, 14vw, 156px) + 34px);
+    padding: 22px 20px 28px calc(var(--member-nav-left) + var(--member-nav-width) + var(--member-nav-gap));
   }
 
   .member-nav {
-    left: 18px;
+    left: var(--member-nav-left);
     right: auto;
-    width: clamp(124px, 14vw, 156px);
+    width: var(--member-nav-width);
     padding: 10px;
   }
 
   .member-nav-button {
-    padding: 9px 13px;
+    min-height: 46px;
+    padding: 10px 13px;
+    font-size: 14px;
   }
 
   .profile-hero {
@@ -717,6 +732,12 @@ textarea {
 }
 
 @media (max-width: 520px) {
+  .member-shell {
+    --member-nav-left: 16px;
+    --member-nav-width: auto;
+    --member-nav-gap: 0px;
+  }
+
   .auth-page {
     align-items: stretch;
     padding: 14px;
@@ -727,8 +748,8 @@ textarea {
   }
 
   .brand-logo {
-    width: 58px;
-    height: 58px;
+    width: 64px;
+    height: 64px;
   }
 
   .account-chip {
