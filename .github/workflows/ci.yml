@@ -6,6 +6,9 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   checks:
     name: Workspace checks
@@ -14,6 +17,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Scan tracked files for secrets
+        run: python3 scripts/security/check_tracked_secrets.py
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -28,11 +34,19 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit Node dependencies
+        run: pnpm audit --audit-level=high
+
       - name: Build frontend and docs
         run: pnpm -r build
 
       - name: Lint frontend workspaces
         run: pnpm -r lint
+
+      - name: Generate Node SBOM
+        run: |
+          mkdir -p sbom
+          pnpm dlx @cyclonedx/cyclonedx-npm --output-file sbom/makershub-node.cdx.json --output-format json
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -47,14 +61,31 @@ jobs:
       - name: Install backend dependencies
         run: uv sync --locked --project apps/api --extra dev
 
+      - name: Audit Python dependencies
+        run: |
+          uv export --project apps/api --extra dev --format requirements.txt --no-hashes --no-header --no-annotate -o /tmp/makershub-api-requirements.txt >/dev/null
+          uvx pip-audit -r /tmp/makershub-api-requirements.txt --progress-spinner off
+
       - name: Lint backend
-        run: uv run --project apps/api ruff check apps/api/app apps/api/tests apps/api/migrations
+        run: uv run --project apps/api ruff check apps/api/app apps/api/tests apps/api/migrations scripts
 
       - name: Run backend tests
         run: uv run --project apps/api pytest apps/api/tests
+
+      - name: Generate Python SBOM
+        run: |
+          mkdir -p sbom
+          uv export --preview-features sbom-export --project apps/api --extra dev --format cyclonedx1.5 -o sbom/makershub-api.cdx.json >/dev/null
 
       - name: Validate Docker Compose
         run: docker compose -f infra/docker/compose.dev.yml config
 
       - name: Lint Docker Compose YAML
         run: npx --yes yaml-lint infra/docker/compose.dev.yml
+
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: makershub-sbom
+          path: sbom/*.cdx.json
+          if-no-files-found: error

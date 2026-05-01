@@ -13,6 +13,26 @@ from functools import lru_cache
 from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# --- 生产配置安全基线 ---
+
+PRODUCTION_ENV = "production"
+LOCAL_ONLY_SECRET_VALUES = {
+    "changemeinproduction",
+    "change-me-in-local-env",
+    "makershub",
+    "makershub_minio",
+}
+
+
+def is_weak_production_secret(value: str, *, min_length: int) -> bool:
+    """判断敏感配置是否仍像本地开发占位值。"""
+
+    normalized = value.strip()
+    compact = normalized.lower().replace("-", "_")
+    if len(normalized) < min_length:
+        return True
+    return compact in LOCAL_ONLY_SECRET_VALUES
+
 
 class Settings(BaseSettings):
     """运行时配置对象。
@@ -159,8 +179,26 @@ class Settings(BaseSettings):
     def validate_production_cors(self) -> Settings:
         """生产环境不允许使用通配 CORS。"""
 
-        if self.app_env == "production" and "*" in self.allow_origins:
+        if self.app_env == PRODUCTION_ENV and "*" in self.allow_origins:
             raise ValueError("生产环境 CORS_ORIGINS 不能使用 *")
+        return self
+
+    @model_validator(mode="after")
+    def validate_production_secrets(self) -> Settings:
+        """生产环境不允许继续使用本地开发密钥或过短密钥。"""
+
+        if self.app_env != PRODUCTION_ENV:
+            return self
+
+        errors: list[str] = []
+        if is_weak_production_secret(self.jwt_secret_key, min_length=32):
+            errors.append("JWT_SECRET_KEY 必须替换为至少 32 位的生产密钥")
+        if self.minio_access_key.strip().lower() == "makershub":
+            errors.append("MINIO_ACCESS_KEY 必须替换为生产访问账号")
+        if is_weak_production_secret(self.minio_secret_key, min_length=16):
+            errors.append("MINIO_SECRET_KEY 必须替换为至少 16 位的生产密钥")
+        if errors:
+            raise ValueError("；".join(errors))
         return self
 
     @property
@@ -173,7 +211,7 @@ class Settings(BaseSettings):
 
         if self.log_debug_file_enabled is not None:
             return self.log_debug_file_enabled
-        return self.app_env != "production"
+        return self.app_env != PRODUCTION_ENV
 
     @property
     def should_send_hsts_header(self) -> bool:
@@ -181,7 +219,7 @@ class Settings(BaseSettings):
 
         if self.hsts_enabled is not None:
             return self.hsts_enabled
-        return self.app_env == "production"
+        return self.app_env == PRODUCTION_ENV
 
     @property
     def rate_limit_exempt_path_list(self) -> list[str]:

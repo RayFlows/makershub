@@ -111,14 +111,20 @@ RayFlows/makershub
 
 当前 CI 在 push 到 `main` 和创建 Pull Request 时执行：
 
+- 扫描 Git 已跟踪文件中的高置信度密钥；
 - 安装前端依赖；
+- 审计 Node 依赖，当前高危及以上漏洞会阻断；
 - 构建成员网页端、后台管理端、文档站和共享包；
-- 执行前端 workspace lint；
+- 执行前端 workspace lint，其中成员网页端和后台管理端会运行 TypeScript 类型检查；
 - 安装后端依赖；
+- 审计 Python 依赖；
 - 执行后端 ruff 检查；
 - 执行后端 pytest；
+- 生成 Node 和 Python CycloneDX SBOM，并作为构建产物上传；
 - 校验 Docker Compose 配置；
 - 校验 Docker Compose YAML。
+
+Dependabot 已配置 npm、uv 和 GitHub Actions 依赖更新。依赖更新进入 PR 后仍必须通过上述 CI。
 
 后续新增数据库迁移、业务模块、前端页面和部署脚本时，应把对应检查同步加入 CI。
 

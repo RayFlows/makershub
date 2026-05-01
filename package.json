@@ -15,8 +15,12 @@
     "docker:ps": "docker compose -f infra/docker/compose.dev.yml ps",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
-    "lint:api": "uv run --project apps/api ruff check apps/api/app apps/api/tests apps/api/migrations",
+    "lint:api": "uv run --project apps/api ruff check apps/api/app apps/api/tests apps/api/migrations scripts",
     "test:api": "uv run --project apps/api pytest apps/api/tests",
+    "security:secrets": "python3 scripts/security/check_tracked_secrets.py",
+    "security:node": "pnpm audit --audit-level=high",
+    "security:api": "uv export --project apps/api --extra dev --format requirements.txt --no-hashes --no-header --no-annotate -o /tmp/makershub-api-requirements.txt >/dev/null && uvx pip-audit -r /tmp/makershub-api-requirements.txt --progress-spinner off",
+    "security": "pnpm security:secrets && pnpm security:node && pnpm security:api",
     "check": "pnpm -r lint && pnpm -r build && pnpm lint:api && pnpm test:api"
   }
 }

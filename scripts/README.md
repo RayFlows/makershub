@@ -4,6 +4,18 @@
 
 例如初始化唯一超级管理员、生成权限点、导入初始部门等。
 
+## 安全检查
+
+`scripts/security/` 放置可以在本地和 CI 中重复执行的轻量安全守卫。
+
+当前可用命令：
+
+```bash
+python3 scripts/security/check_tracked_secrets.py
+```
+
+它只扫描 Git 已跟踪文件，避免本地 `.env` 和构建产物造成误报。
+
 ## 小程序同步
 
 微信开发者工具运行在 Windows 宿主机上，直接打开 WSL 的 `\\wsl.localhost\...`

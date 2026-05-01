@@ -181,7 +181,7 @@ function App() {
     if (status === "passwordRequired" && auth) {
       return <SetPasswordScreen token={auth.access_token} onPasswordSet={handlePasswordSet} />;
     }
-    if (status === "authenticated" && user) {
+    if (status === "authenticated" && auth && user) {
       return <MemberShell user={user} token={auth.access_token} channel={channel} onLogout={handleLogout} />;
     }
     return <LoadingScreen />;

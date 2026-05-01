@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "lint": "echo \"web lint placeholder\""
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.0",

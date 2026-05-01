@@ -18,6 +18,17 @@ from app.interfaces.http.v1.system import router as system_router_module
 from app.main import create_app
 
 
+def set_secure_production_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """设置能通过生产安全校验的测试环境变量。"""
+
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("EMAIL_DELIVERY_MODE", "smtp")
+    monkeypatch.setenv("CORS_ORIGINS", "https://mc.scumaker.com")
+    monkeypatch.setenv("JWT_SECRET_KEY", "test-production-jwt-secret-value-0001")
+    monkeypatch.setenv("MINIO_ACCESS_KEY", "test-production-minio-access")
+    monkeypatch.setenv("MINIO_SECRET_KEY", "test-production-minio-secret-0001")
+
+
 def test_security_headers_are_applied() -> None:
     """普通响应应带基础安全响应头。"""
 
@@ -34,9 +45,7 @@ def test_security_headers_are_applied() -> None:
 def test_hsts_header_is_enabled_in_production(monkeypatch) -> None:
     """生产环境默认发送 HSTS 响应头。"""
 
-    monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("EMAIL_DELIVERY_MODE", "smtp")
-    monkeypatch.setenv("CORS_ORIGINS", "https://mc.scumaker.com")
+    set_secure_production_env(monkeypatch)
     get_settings.cache_clear()
 
     try:
@@ -51,8 +60,7 @@ def test_hsts_header_is_enabled_in_production(monkeypatch) -> None:
 def test_production_rejects_wildcard_cors(monkeypatch) -> None:
     """生产环境不允许使用通配 CORS。"""
 
-    monkeypatch.setenv("APP_ENV", "production")
-    monkeypatch.setenv("EMAIL_DELIVERY_MODE", "smtp")
+    set_secure_production_env(monkeypatch)
     monkeypatch.setenv("CORS_ORIGINS", "*")
     get_settings.cache_clear()
 
@@ -108,11 +116,40 @@ def test_rate_limit_rejects_excessive_requests(monkeypatch) -> None:
     assert second.headers["retry-after"]
 
 
+def test_production_rejects_default_jwt_secret(monkeypatch) -> None:
+    """生产环境不能使用本地默认 JWT 密钥。"""
+
+    set_secure_production_env(monkeypatch)
+    monkeypatch.setenv("JWT_SECRET_KEY", "ChangeMeInProduction")
+    get_settings.cache_clear()
+
+    try:
+        with pytest.raises(ValidationError, match="JWT_SECRET_KEY"):
+            create_app()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_production_rejects_default_minio_secret(monkeypatch) -> None:
+    """生产环境不能使用本地默认 MinIO 凭据。"""
+
+    set_secure_production_env(monkeypatch)
+    monkeypatch.setenv("MINIO_ACCESS_KEY", "makershub")
+    monkeypatch.setenv("MINIO_SECRET_KEY", "makershub_minio")
+    get_settings.cache_clear()
+
+    try:
+        with pytest.raises(ValidationError, match="MINIO_ACCESS_KEY"):
+            create_app()
+    finally:
+        get_settings.cache_clear()
+
+
 @pytest.mark.asyncio
 async def test_email_log_mode_is_forbidden_in_production(monkeypatch) -> None:
     """生产环境不允许把明文验证码写入运行日志。"""
 
-    monkeypatch.setenv("APP_ENV", "production")
+    set_secure_production_env(monkeypatch)
     monkeypatch.setenv("EMAIL_DELIVERY_MODE", "log")
     get_settings.cache_clear()
 
