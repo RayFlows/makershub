@@ -18,22 +18,6 @@ from app.core.permissions.registry import permission_registry
 from app.core.permissions.types import PermissionDecision
 
 
-SYSTEM_OPERATOR_PERMISSION_CODES = frozenset(
-    {
-        "system.admin.access",
-        "system.audit.view",
-        "system.permission.manage",
-        "files.manage",
-    },
-)
-"""
-998 管理员的底层运维权限。
-
-需求文档明确 998/999 不作为日常业务审批角色，因此这里不给 998 自动授予
-组织管理、积分审批、资源审核等业务权限。业务授权应该通过角色和作用域单独授予。
-"""
-
-
 @dataclass(frozen=True)
 class RoleDefinition:
     """系统预置角色定义。"""
@@ -73,8 +57,8 @@ DEFAULT_ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
     RoleDefinition(
         code="system_operator",
         name="系统运维管理员",
-        description="998 系统身份对应的运维权限，不包含日常业务审批权限。",
-        permission_codes=tuple(sorted(SYSTEM_OPERATOR_PERMISSION_CODES)),
+        description="998 管理由唯一 999 指定，底层能力与 999 一致。",
+        permission_codes=None,
     ),
     RoleDefinition(
         code="organization_manager",
@@ -137,8 +121,9 @@ async def get_user_permission_summary(
     """
     获取用户权限摘要。
 
-    `999` 返回全部已注册权限点；`998` 返回底层运维权限；普通用户只返回数据库
-    角色授权得到的权限点。这样可以让后台菜单和接口鉴权使用同一套结果。
+    `998` 与 `999` 的底层能力一致，区别在于 `998` 必须由唯一 `999` 指定。
+    普通用户只返回数据库角色授权得到的权限点。这样可以让后台菜单和接口鉴权
+    使用同一套结果。
     """
 
     repository = PermissionRepository(session)
@@ -152,10 +137,8 @@ async def get_user_permission_summary(
     )
 
     permission_codes: set[str] = set()
-    if is_super_admin:
+    if is_super_admin or is_system_operator:
         permission_codes.update(point.code for point in permission_registry.list())
-    if is_system_operator:
-        permission_codes.update(SYSTEM_OPERATOR_PERMISSION_CODES)
 
     permission_codes.update(
         await repository.list_user_permission_codes(
@@ -209,14 +192,11 @@ async def check_user_permission(
             scope_id=scope_id,
         )
 
-    if (
-        permission_code in SYSTEM_OPERATOR_PERMISSION_CODES
-        and await repository.user_has_system_position(user_id=user_id, position_code="998")
-    ):
+    if await repository.user_has_system_position(user_id=user_id, position_code="998"):
         return PermissionDecision(
             allowed=True,
             permission_code=permission_code,
-            reason="998 系统运维权限放行",
+            reason="998 管理员底层权限放行",
             scope_type=scope_type,
             scope_id=scope_id,
         )

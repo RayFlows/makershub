@@ -166,3 +166,45 @@ async def test_super_admin_position_bypasses_registered_permissions() -> None:
     assert set(summary.permissions) == {point.code for point in permission_registry.list()}
 
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_system_operator_position_has_same_permission_set_as_super_admin() -> None:
+    """998 由 999 指定，但底层能力集合与 999 一致。"""
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as session:
+        await sync_registered_permissions(session)
+        user = User(display_name="系统管理员", status="active")
+        position = Position(code="998", name="管理员", status="active", is_system=True)
+        session.add_all([user, position])
+        await session.flush()
+        session.add(
+            UserPosition(
+                user_id=user.id,
+                position_id=position.id,
+                scope_type="global",
+            ),
+        )
+        await session.commit()
+        user_id = user.id
+
+    async with session_factory() as session:
+        decision = await check_user_permission(
+            session,
+            user_id=user_id,
+            permission_code="organization.member.manage",
+        )
+        summary = await get_user_permission_summary(session, user_id=user_id)
+
+    assert decision.allowed is True
+    assert summary.is_super_admin is False
+    assert summary.is_system_operator is True
+    assert set(summary.permissions) == {point.code for point in permission_registry.list()}
+
+    await engine.dispose()

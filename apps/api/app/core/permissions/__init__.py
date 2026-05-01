@@ -15,7 +15,6 @@ from app.core.permissions.registry import (
     register_core_permissions,
 )
 from app.core.permissions.service import (
-    SYSTEM_OPERATOR_PERMISSION_CODES,
     UserPermissionSummary,
     check_user_permission,
     get_user_permission_summary,
@@ -32,7 +31,6 @@ __all__ = [
     "PermissionScope",
     "Role",
     "RolePermission",
-    "SYSTEM_OPERATOR_PERMISSION_CODES",
     "UserPermissionSummary",
     "UserRole",
     "check_user_permission",
