@@ -28,14 +28,18 @@ import {
 import {
   ApiRequestError,
   firstLogin,
+  getMyMemberProfile,
   getMe,
   logout,
   passwordLogin,
   refreshToken,
   sendEmailCode,
   setPassword,
+  updateMyMemberProfile,
   type AuthTokenData,
   type EmailCodeResponse,
+  type MyMemberProfileResponse,
+  type UpdateMemberProfilePayload,
   type UserSummary,
 } from "./api";
 import {
@@ -62,6 +66,18 @@ interface FirstLoginValues {
 interface PasswordSetValues {
   password: string;
   confirm_password: string;
+}
+
+interface MemberProfileFormValues {
+  real_name?: string;
+  student_id?: string;
+  phone?: string;
+  email?: string;
+  college?: string;
+  major?: string;
+  grade?: string;
+  qq?: string;
+  bio?: string;
 }
 
 const menuItems = [
@@ -166,7 +182,7 @@ function App() {
       return <SetPasswordScreen token={auth.access_token} onPasswordSet={handlePasswordSet} />;
     }
     if (status === "authenticated" && user) {
-      return <MemberShell user={user} channel={channel} onLogout={handleLogout} />;
+      return <MemberShell user={user} token={auth.access_token} channel={channel} onLogout={handleLogout} />;
     }
     return <LoadingScreen />;
   }, [auth, channel, status, user]);
@@ -490,10 +506,12 @@ function SetPasswordScreen({
 
 function MemberShell({
   user,
+  token,
   channel,
   onLogout,
 }: {
   user: UserSummary;
+  token: string;
   channel: string;
   onLogout: () => void;
 }) {
@@ -609,6 +627,8 @@ function MemberShell({
             </Descriptions>
           </section>
 
+          <MemberProfilePanel token={token} fallbackEmail={user.email} />
+
           <section className="work-grid">
             <div className="surface panel work-panel">
               <Statistic title="本周积分变动" value="--" />
@@ -624,6 +644,145 @@ function MemberShell({
       </div>
     </div>
   );
+}
+
+function MemberProfilePanel({ token, fallbackEmail }: { token: string; fallbackEmail: string | null }) {
+  const [form] = Form.useForm<MemberProfileFormValues>();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [profileData, setProfileData] = useState<MyMemberProfileResponse | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadProfile() {
+      setLoading(true);
+      setMessage(null);
+      try {
+        const result = await getMyMemberProfile(token);
+        if (!alive) return;
+        setProfileData(result);
+        form.setFieldsValue(profileToFormValues(result, fallbackEmail));
+      } catch (err) {
+        if (!alive) return;
+        setMessage({ type: "error", text: authErrorMessage(err) });
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    loadProfile();
+    return () => {
+      alive = false;
+    };
+  }, [fallbackEmail, form, token]);
+
+  async function handleSubmit(values: MemberProfileFormValues) {
+    setSaving(true);
+    setMessage(null);
+    try {
+      const result = await updateMyMemberProfile(token, compactProfilePayload(values));
+      setProfileData(result);
+      form.setFieldsValue(profileToFormValues(result, fallbackEmail));
+      setMessage({ type: "success", text: "资料已保存" });
+    } catch (err) {
+      setMessage({ type: "error", text: authErrorMessage(err) });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const departmentText =
+    profileData?.memberships.map((item) => item.department.name).join("、") ||
+    (profileData?.departments.length ? "暂未分配" : "--");
+
+  return (
+    <section className="surface panel profile-form-panel">
+      <div className="section-title profile-form-title">
+        <UserRound size={18} />
+        <span>个人资料</span>
+      </div>
+      {message && (
+        <Alert
+          className="form-alert"
+          type={message.type}
+          showIcon
+          message={message.text}
+        />
+      )}
+      <Spin spinning={loading}>
+        <Form form={form} layout="vertical" requiredMark={false} onFinish={handleSubmit}>
+          <div className="profile-form-grid">
+            <Form.Item label="真实姓名" name="real_name">
+              <Input placeholder="填写真实姓名" />
+            </Form.Item>
+            <Form.Item
+              label="手机号"
+              name="phone"
+              rules={[{ pattern: /^1[3-9]\d{9}$/, message: "请输入 11 位手机号" }]}
+            >
+              <Input inputMode="tel" maxLength={11} placeholder="用于借用和项目联系" />
+            </Form.Item>
+            <Form.Item label="学号" name="student_id">
+              <Input inputMode="numeric" placeholder="填写学号" />
+            </Form.Item>
+            <Form.Item label="QQ" name="qq">
+              <Input inputMode="numeric" placeholder="填写 QQ 号" />
+            </Form.Item>
+            <Form.Item label="学院" name="college">
+              <Input placeholder="例如：计算机学院" />
+            </Form.Item>
+            <Form.Item label="专业" name="major">
+              <Input placeholder="例如：计算机科学与技术" />
+            </Form.Item>
+            <Form.Item label="年级" name="grade">
+              <Input inputMode="numeric" placeholder="例如：2026" />
+            </Form.Item>
+            <Form.Item label="联系邮箱" name="email">
+              <Input autoComplete="email" placeholder="用于资料联系，不影响登录邮箱" />
+            </Form.Item>
+          </div>
+          <Form.Item label="个人简介" name="bio">
+            <Input.TextArea rows={4} maxLength={500} showCount placeholder="写一点项目方向或兴趣" />
+          </Form.Item>
+          <div className="profile-form-footer">
+            <span>当前部门：{departmentText}</span>
+            <Button type="primary" htmlType="submit" loading={saving}>
+              保存资料
+            </Button>
+          </div>
+        </Form>
+      </Spin>
+    </section>
+  );
+}
+
+function profileToFormValues(
+  data: MyMemberProfileResponse,
+  fallbackEmail: string | null,
+): MemberProfileFormValues {
+  const { profile } = data;
+  return {
+    real_name: profile.real_name || "",
+    student_id: profile.student_id || "",
+    phone: profile.phone || "",
+    email: profile.email || fallbackEmail || "",
+    college: profile.college || "",
+    major: profile.major || "",
+    grade: profile.grade || "",
+    qq: profile.qq || "",
+    bio: profile.bio || "",
+  };
+}
+
+function compactProfilePayload(values: MemberProfileFormValues): UpdateMemberProfilePayload {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [
+      key,
+      typeof value === "string" && value.trim() === "" ? null : value,
+    ]),
+  ) as UpdateMemberProfilePayload;
 }
 
 export default App;

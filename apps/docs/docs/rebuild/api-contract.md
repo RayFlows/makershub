@@ -235,6 +235,22 @@ Authorization: Bearer <token>
 | `PATCH` | `/api/v1/members/{member_id}/department` | 修改成员部门 |
 | `PATCH` | `/api/v1/members/{member_id}/positions` | 修改成员职务 |
 
+规则：
+
+- 成员资料属于组织域，不再写回身份域 `users` 表；
+- 旧小程序里的 `phone_num` 在新成员资料表中对应 `phone`，小程序后续适配时由 API 客户端或接口适配层映射；
+- 当前用户自助资料接口只能修改自己的基本资料，不能调整部门、职务和权限；
+- 后台修改他人资料、部门和职务必须接入权限点后再开放；
+- 部门列表第一阶段要求登录访问，后续如果有公开展示需求再单独设计公开接口。
+
+当前实现状态：
+
+- 已完成 `departments`、`member_profiles` 和 `department_memberships` 数据模型与迁移；
+- 已完成宣传部、基管部、项目部、运维部的初始部门种子；
+- 已完成 `/api/v1/departments`、`/api/v1/me/profile` 的读取接口；
+- 已完成 `/api/v1/me/profile` 的当前用户自助更新接口；
+- 成员列表、成员详情、后台成员资料维护、部门调整和职务调整仍待接入权限系统后实现。
+
 ### 权限
 
 | 方法 | 路径 | 用途 |

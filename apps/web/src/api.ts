@@ -42,6 +42,56 @@ export interface MeResponse {
   };
 }
 
+export interface DepartmentSummary {
+  id: number;
+  code: string;
+  name: string;
+  status: string;
+  sort_order: number;
+}
+
+export interface MemberProfile {
+  id: number;
+  user_id: number;
+  real_name: string | null;
+  student_id: string | null;
+  phone: string | null;
+  email: string | null;
+  college: string | null;
+  major: string | null;
+  grade: string | null;
+  qq: string | null;
+  bio: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DepartmentMembership {
+  id: number;
+  department: DepartmentSummary;
+  status: string;
+  joined_at: string;
+  left_at: string | null;
+}
+
+export interface MyMemberProfileResponse {
+  profile: MemberProfile;
+  departments: DepartmentSummary[];
+  memberships: DepartmentMembership[];
+}
+
+export interface UpdateMemberProfilePayload {
+  real_name?: string | null;
+  student_id?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  college?: string | null;
+  major?: string | null;
+  grade?: string | null;
+  qq?: string | null;
+  bio?: string | null;
+}
+
 interface ApiEnvelope<T> {
   success: boolean;
   data?: T;
@@ -152,5 +202,20 @@ export function getMe(token: string) {
   return apiRequest<MeResponse>("/auth/me", {
     method: "GET",
     token,
+  });
+}
+
+export function getMyMemberProfile(token: string) {
+  return apiRequest<MyMemberProfileResponse>("/me/profile", {
+    method: "GET",
+    token,
+  });
+}
+
+export function updateMyMemberProfile(token: string, body: UpdateMemberProfilePayload) {
+  return apiRequest<MyMemberProfileResponse>("/me/profile", {
+    method: "PATCH",
+    token,
+    body,
   });
 }

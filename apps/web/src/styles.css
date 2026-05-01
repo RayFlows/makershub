@@ -642,6 +642,49 @@ textarea {
   color: #d06d3c;
 }
 
+.profile-form-panel {
+  padding: 22px;
+}
+
+.profile-form-title {
+  margin-bottom: 18px;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 16px;
+}
+
+.profile-form-panel .ant-form-item {
+  margin-bottom: 16px;
+}
+
+.profile-form-panel .ant-form-item-label > label {
+  color: #5b554f;
+  font-weight: 560;
+}
+
+.profile-form-panel .ant-input,
+.profile-form-panel .ant-input-affix-wrapper,
+.profile-form-panel .ant-input-textarea-show-count::after {
+  color: #201c17;
+}
+
+.profile-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: #5b554f;
+}
+
+.profile-form-footer .ant-btn {
+  min-width: 112px;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
 .work-panel {
   min-height: 112px;
   padding: 18px;
@@ -697,6 +740,7 @@ textarea {
   }
 
   .status-grid,
+  .profile-form-grid,
   .work-grid {
     grid-template-columns: 1fr;
   }
@@ -756,5 +800,10 @@ textarea {
   .auth-heading.compact h1,
   .profile-header h1 {
     font-size: 24px;
+  }
+
+  .profile-form-footer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
