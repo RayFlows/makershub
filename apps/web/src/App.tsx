@@ -13,7 +13,6 @@ import {
   Typography,
 } from "antd";
 import {
-  Activity,
   ArrowRight,
   ClipboardList,
   Coins,
@@ -569,10 +568,6 @@ function MemberShell({
               <h1 className="headline page-title">成员工作台</h1>
               <p className="muted page-summary">查看账号状态、积分账本、借用记录与项目申请。</p>
             </div>
-            <div className="status-pill">
-              <Activity size={18} />
-              <span>{user.status}</span>
-            </div>
           </section>
 
           <section className="surface panel profile-hero">
@@ -584,10 +579,6 @@ function MemberShell({
                 <Typography.Title level={1}>{user.display_name}</Typography.Title>
                 <Typography.Text type="secondary">{user.email || "未绑定邮箱"}</Typography.Text>
               </div>
-            </div>
-            <div className="hero-status">
-              <Activity size={18} />
-              <span>{user.status}</span>
             </div>
           </section>
 

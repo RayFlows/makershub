@@ -100,8 +100,7 @@ textarea {
 .brand,
 .profile-header,
 .top-title,
-.section-title,
-.hero-status {
+.section-title {
   display: flex;
   align-items: center;
 }
@@ -322,9 +321,7 @@ textarea {
 .topbar-actions,
 .account-chip,
 .profile-header,
-.section-title,
-.hero-status,
-.status-pill {
+.section-title {
   display: flex;
   align-items: center;
 }
@@ -551,19 +548,6 @@ textarea {
   font-size: 15px;
 }
 
-.status-pill {
-  flex: none;
-  gap: 8px;
-  min-height: 34px;
-  padding: 7px 11px;
-  border: 1px solid rgba(53, 46, 39, 0.08);
-  border-radius: 999px;
-  color: #8b4b2b;
-  background: rgba(255, 255, 255, 0.88);
-  font-size: 14px;
-  font-weight: 500;
-}
-
 .profile-hero {
   min-height: 146px;
   display: flex;
@@ -588,19 +572,6 @@ textarea {
 
 .profile-header .ant-typography-secondary {
   color: #5b554f !important;
-}
-
-.hero-status {
-  flex: none;
-  gap: 8px;
-  min-height: 34px;
-  padding: 7px 11px;
-  border: 1px solid rgba(53, 46, 39, 0.08);
-  border-radius: 999px;
-  color: #8b4b2b;
-  background: rgba(255, 255, 255, 0.88);
-  font-size: 14px;
-  font-weight: 500;
 }
 
 .status-grid,
