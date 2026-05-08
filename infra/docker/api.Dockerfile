@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV UV_PROJECT_ENVIRONMENT=/workspace/.venv/api \
     UV_COMPILE_BYTECODE=1
@@ -11,7 +11,7 @@ COPY pyproject.toml uv.lock ./
 COPY apps/api/pyproject.toml apps/api/pyproject.toml
 RUN uv sync --locked --project apps/api --no-dev
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
