@@ -3,7 +3,11 @@ FROM node:22-alpine AS deps
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 
-RUN corepack enable
+RUN if command -v corepack >/dev/null 2>&1; then \
+        corepack enable; \
+    else \
+        npm install --global pnpm@9.15.9; \
+    fi
 
 WORKDIR /workspace
 
