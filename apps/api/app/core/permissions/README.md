@@ -26,6 +26,10 @@
   - `files.upload`
   - `files.manage`
   - `points.ledger.view`
+  - `points.rule.view`
+  - `points.rule.manage`
+  - `points.temporary_rule.apply`
+  - `points.temporary_rule.review`
   - `points.manual.adjust`
 - 首批核心角色：
   - `system_super_admin`：唯一 `999` 母账号，包含系统兜底权限和指定/恢复 `998` 权限；
@@ -33,6 +37,9 @@
   - `organization_manager`：维护成员资料、部门和职务；
   - `auditor`：查看审计日志；
   - `points_manager`：查看积分账户和积分流水，不包含人工调整积分能力；
+  - `points_rule_applicant`：提交临时积分规则申请；
+  - `points_rule_reviewer`：审批、驳回和撤回临时积分规则；
+  - `points_rule_manager`：维护固定积分规则，并处理临时规则申请和审批；
 
 ## 尚未落地
 
@@ -47,7 +54,7 @@
 - 已注册的权限点 code 进入数据库、前端菜单和审计日志后必须保持稳定；
 - `998/999` 只代表系统兜底身份，默认不获得普通业务权限；
 - `points.manual.adjust` 属于系统兜底权限，用于积分异常修复和受控人工调整；
-- 积分规则审批、日常发放规则维护和积分统计导出不应该默认落到 `998/999`，需要后续业务角色授权；
+- 积分规则审批和日常发放规则维护不默认落到 `998/999`，需要业务角色授权；
 - `999` 额外拥有指定或恢复 `998` 的母账号动作权限；
 - `998` 必须由唯一 `999` 指定；普通业务授权仍应优先授予具体业务角色。
 - 普通权限写接口不能授予或撤销 `system_operator`、`system_super_admin`，它们对应的底层身份需要专门流程。

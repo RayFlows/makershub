@@ -51,6 +51,10 @@ def test_core_permission_registry_contains_required_points() -> None:
     assert "system.operator.manage" in codes
     assert "system.super_admin.recover" in codes
     assert "points.ledger.view" in codes
+    assert "points.rule.view" in codes
+    assert "points.rule.manage" in codes
+    assert "points.temporary_rule.apply" in codes
+    assert "points.temporary_rule.review" in codes
     assert "points.manual.adjust" in codes
 
 
@@ -98,6 +102,9 @@ async def test_sync_registered_permissions_creates_roles_and_permissions() -> No
         "system_super_admin",
         "organization_manager",
         "points_manager",
+        "points_rule_applicant",
+        "points_rule_reviewer",
+        "points_rule_manager",
     }
 
     await engine.dispose()

@@ -150,6 +150,7 @@ Authorization: Bearer <token>
 - `998/999` 默认拥有 `points.manual.adjust`，用于积分异常修复和受控人工调整；
 - `999` 额外拥有指定或恢复 `998` 的母账号动作权限；
 - 已新增 `points_manager` 角色，只能查看积分账户和流水，不能人工调整积分；
+- 已新增 `points_rule_applicant`、`points_rule_reviewer`、`points_rule_manager`，用于积分规则申请、审批和固定规则维护；
 - 普通业务权限仍然需要业务角色或作用域授权。
 
 ### 幂等
@@ -342,8 +343,14 @@ Authorization: Bearer <token>
 | `GET` | `/api/v1/me/points/ledger` | 查看自己的积分流水 |
 | `GET` | `/api/v1/points/accounts/{user_id}` | 查看指定用户积分账户 |
 | `GET` | `/api/v1/points/ledger` | 查询积分流水 |
+| `POST` | `/api/v1/points/ledger/{ledger_entry_id}/reverse` | 反向修正异常流水 |
+| `GET` | `/api/v1/points/rules` | 查看积分规则 |
+| `POST` | `/api/v1/points/rules` | 创建固定积分规则 |
+| `POST` | `/api/v1/points/rules/{rule_id}/revoke` | 撤回积分规则 |
+| `GET` | `/api/v1/points/rules/temporary` | 查看临时积分规则申请 |
 | `POST` | `/api/v1/points/rules/temporary` | 提交临时积分规则申请 |
 | `POST` | `/api/v1/points/rules/temporary/{rule_id}/approve` | 审批临时积分规则 |
+| `POST` | `/api/v1/points/rules/temporary/{rule_id}/reject` | 驳回临时积分规则 |
 | `POST` | `/api/v1/points/rules/temporary/{rule_id}/revoke` | 撤回临时积分规则 |
 | `POST` | `/api/v1/points/manual-adjustments` | 受控人工调整积分 |
 
@@ -355,6 +362,7 @@ Authorization: Bearer <token>
 - 积分写接口必须提供 `Idempotency-Key` 或业务唯一键，防止重复发放或重复扣减；
 - 后台人工调整积分只服务 `998/999` 系统兜底和异常修复，必须填写原因并写入审计；
 - `points_manager` 可以查看成员积分账户和流水，但不能执行人工调整；
+- `points_rule_manager` 可以维护固定规则和临时规则审批，但不自动获得 `points.manual.adjust`；
 - 临时积分规则撤回默认停止后续使用，不自动追回已发积分；
 - 异常追回必须通过反向流水修正。
 
@@ -365,8 +373,10 @@ Authorization: Bearer <token>
 - 已完成积分服务层的人工调整、冻结、解冻、冻结转扣除和幂等保护；
 - 已开放当前用户积分账户和流水接口；
 - 已开放后台积分账户、流水查询和受控人工调整接口；
-- 已接入 `points.manual_adjustment.create` 审计；
-- 固定积分规则、临时积分规则申请/审批/撤回和反向流水业务接口仍待实现。
+- 已接入 `points.manual_adjustment.create`、`points.ledger.reverse`、`points.rule.*` 和
+  `points.temporary_rule.*` 审计；
+- 已开放固定积分规则、临时积分规则申请/审批/驳回/撤回和反向流水修正接口；
+- 冻结、解冻和冻结转扣除暂不开放 HTTP，等借用、资源和任务域接入时由服务层调用。
 
 ### 资源
 

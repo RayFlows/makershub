@@ -29,6 +29,7 @@
 | 积分流水查询和幂等恢复 | `app.modules.points.ledger` | 成员端、后台账本查询、积分域内部 |
 | 冻结、解冻、冻结转扣除 | `app.modules.points.holds` | 后续借用、打印、资源占用等业务域 |
 | 受控人工补发和扣减 | `app.modules.points.adjustments` | 后台人工调整接口 |
+| 固定规则、临时规则和一次性任务模板 | `app.modules.points.rules` | 后台规则维护、后续任务域 |
 | 结果对象和值校验 | `app.modules.points.types`、`app.modules.points.utils` | 积分域内部能力和测试 |
 
 ## 目录结构
@@ -54,6 +55,10 @@ points/
   adjustments/
     README.md
     service.py                  # 受控人工补发和扣减
+  rules/
+    README.md
+    service.py                  # 固定规则、临时规则审批和按规则发放
+    repository.py               # point_rules/temporary_point_rules 查询和写入
 ```
 
 ## 已落地能力
@@ -65,6 +70,12 @@ points/
 - `freeze_points(...)`：冻结可用积分，不改变总余额；
 - `release_point_hold(...)`：解冻有效冻结记录；
 - `deduct_point_hold(...)`：把冻结记录转为实际扣除；
+- `create_point_rule(...)`：创建固定积分规则；
+- `submit_temporary_point_rule(...)`：提交临时积分规则申请；
+- `approve_temporary_point_rule(...)`：审批通过临时规则并生成一次性任务模板；
+- `revoke_temporary_point_rule(...)`：撤回已发布临时规则，只停止后续使用；
+- `grant_points_by_rule(...)`：供后续任务域按规则发放积分；
+- `reverse_ledger_entry(...)`：通过反向流水修正异常积分流水；
 - `idempotency_key`：防止同一业务事件重复发放、重复冻结或重复扣除。
 
 ## 调用链路
@@ -95,6 +106,22 @@ points/
   -> audit_logs
 ```
 
+临时积分规则审批：
+
+```text
+/api/v1/points/rules/temporary
+  -> points.rules.submit_temporary_point_rule
+  -> temporary_point_rules + temporary_point_rule_events
+
+/api/v1/points/rules/temporary/{id}/approve
+  -> points.rules.approve_temporary_point_rule
+  -> point_rules(temporary_task_template) + temporary_point_rules + temporary_point_rule_events
+
+后续任务审核通过
+  -> points.rules.grant_points_by_rule
+  -> point_accounts + point_ledger_entries
+```
+
 后续借用押金冻结：
 
 ```text
@@ -111,7 +138,7 @@ borrowing 应用用例
 
 - 不负责登录认证，当前用户由 HTTP 依赖提供；
 - 不负责权限判断，后台接口通过 `require_permission(...)` 检查权限；
-- 不负责日常积分规则审批，固定规则和临时规则会在后续业务接口中单独实现；
+- 不负责任务发布、任务领取和任务审核，积分规则只生成可引用模板；
 - 不负责小程序旧 `score` 字段兼容，后续由接口适配层或小程序 API 客户端迁移。
 
 ## 维护约束
@@ -123,12 +150,13 @@ borrowing 应用用例
 - 仓储层不提交事务，只封装查询和写入；
 - 人工调整必须填写原因，并由接口层写入审计日志；
 - 撤回、追回和异常修正必须通过反向流水表达，不能删除或覆盖旧流水；
+- 临时规则撤回默认停止后续使用，不自动追回已发积分；
+- `998/999` 不默认拥有积分规则审批权限，只负责系统兜底人工调整；
 - 运行日志、审计日志和积分流水是三类不同信息，不能互相替代。
 
 ## 后续待实现
 
-- 固定积分规则；
-- 临时积分规则申请、审批、撤回；
-- 一次性任务模板和积分发放；
-- 异常追回和反向流水修正用例；
-- 积分通知和受影响用户提醒。
+- 规则与 workbench 任务模板的正式关联表；
+- 临时规则撤回后的用户通知实现；
+- 固定规则默认种子数据和后台配置页；
+- 小程序旧 `score` 展示迁移到积分账户接口。

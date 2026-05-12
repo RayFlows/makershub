@@ -135,6 +135,40 @@ DEFAULT_ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         description="查看成员积分账户和积分流水，不包含人工调整积分能力。",
         permission_codes=("system.admin.access", "points.ledger.view"),
     ),
+    RoleDefinition(
+        code="points_rule_applicant",
+        name="临时积分规则申请人",
+        description="提交特殊非模板任务的临时积分规则申请。",
+        permission_codes=(
+            "system.admin.access",
+            "points.rule.view",
+            "points.temporary_rule.apply",
+        ),
+    ),
+    RoleDefinition(
+        code="points_rule_reviewer",
+        name="临时积分规则审批员",
+        description="审批、驳回和撤回临时积分规则，不包含系统兜底人工改分。",
+        permission_codes=(
+            "system.admin.access",
+            "points.ledger.view",
+            "points.rule.view",
+            "points.temporary_rule.review",
+        ),
+    ),
+    RoleDefinition(
+        code="points_rule_manager",
+        name="积分规则管理员",
+        description="维护固定积分规则，并处理临时积分规则申请和审批。",
+        permission_codes=(
+            "system.admin.access",
+            "points.ledger.view",
+            "points.rule.view",
+            "points.rule.manage",
+            "points.temporary_rule.apply",
+            "points.temporary_rule.review",
+        ),
+    ),
 )
 
 

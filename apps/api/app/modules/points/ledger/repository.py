@@ -26,6 +26,31 @@ class PointLedgerRepository:
         statement = select(PointLedgerEntry).where(PointLedgerEntry.idempotency_key == idempotency_key)
         return await self.session.scalar(statement)
 
+    async def get_ledger_entry_by_id(self, ledger_entry_id: int) -> PointLedgerEntry | None:
+        """按 ID 查询积分流水。"""
+
+        statement = select(PointLedgerEntry).where(PointLedgerEntry.id == ledger_entry_id)
+        return await self.session.scalar(statement)
+
+    async def get_ledger_entry_by_business(
+        self,
+        *,
+        business_type: str,
+        business_id: str,
+    ) -> PointLedgerEntry | None:
+        """按业务来源查询一条积分流水。"""
+
+        statement = (
+            select(PointLedgerEntry)
+            .where(
+                PointLedgerEntry.business_type == business_type,
+                PointLedgerEntry.business_id == business_id,
+            )
+            .order_by(PointLedgerEntry.id.desc())
+            .limit(1)
+        )
+        return await self.session.scalar(statement)
+
     async def add_ledger_entry(self, entry: PointLedgerEntry) -> PointLedgerEntry:
         """写入一条积分流水。"""
 
