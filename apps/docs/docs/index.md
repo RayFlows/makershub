@@ -7,7 +7,7 @@
 刚接回项目时，建议先按这个顺序读：
 
 1. [重构文档首页](./rebuild/README.md)：文档分组和当前状态。
-2. [需求核对清单](./rebuild/requirements-checklist.md)：业务口径。
-3. [第一阶段路线图](./rebuild/phase-1-roadmap.md)：已完成和待完成事项。
-4. [API 契约草案](./rebuild/api-contract.md)：接口响应、认证、权限和核心 API。
-5. [后端基础设施清单](./rebuild/backend-foundation-checklist.md)：底座能力是否已经可用。
+2. [需求核对清单](./rebuild/01-先读/01-需求核对清单.md)：业务口径。
+3. [第一阶段路线图](./rebuild/01-先读/02-第一阶段路线图.md)：已完成和待完成事项。
+4. [API 契约草案](./rebuild/02-架构设计/01-API契约.md)：接口响应、认证、权限和核心 API。
+5. [后端基础设施清单](./rebuild/01-先读/03-后端基础设施清单.md)：底座能力是否已经可用。

@@ -20,31 +20,31 @@
 
 ### 只想快速接上上下文
 
-先读这 5 个文件：
+先读这几份：
 
-1. [需求核对清单](./requirements-checklist.md)：业务规则以这里为准。
-2. [第一阶段实施路线图](./phase-1-roadmap.md)：看当前进度和下一步。
-3. [后端基础设施清单](./backend-foundation-checklist.md)：看底座是否完成、还有什么硬缺口。
-4. [API 契约草案](./api-contract.md)：看接口响应、认证、权限和核心 API。
-5. [后端代码注释与工程化规范](./backend-code-style.md)：看后续代码应该怎么写。
-6. [后端业务域内部架构](./backend-domain-architecture.md)：看业务域内部怎么继续拆。
+1. [需求核对清单](./01-先读/01-需求核对清单.md)：业务规则以这里为准。
+2. [第一阶段实施路线图](./01-先读/02-第一阶段路线图.md)：看当前进度和下一步。
+3. [后端基础设施清单](./01-先读/03-后端基础设施清单.md)：看底座是否完成、还有什么硬缺口。
+4. [API 契约草案](./02-架构设计/01-API契约.md)：看接口响应、认证、权限和核心 API。
+5. [后端代码注释与工程化规范](./03-工程运维/02-后端代码规范.md)：看后续代码应该怎么写。
+6. [后端业务域内部架构](./02-架构设计/04-后端业务域内部架构.md)：看业务域内部怎么继续拆。
 
 ### 要理解为什么这么拆
 
 继续看：
 
-- [业务域划分](./domain-division.md)：解释为什么是 identity、organization、points、resources、borrowing、projects 这些域。
-- [后端业务域内部架构](./backend-domain-architecture.md)：解释业务域下面如何继续按能力、聚合和状态机拆分。
-- [数据库设计草案](./database-design.md)：看核心表和字段。
-- [功能工作流](./workflows.md)：看旧系统和新系统的流程差异。
+- [业务域划分](./02-架构设计/03-业务域划分.md)：解释为什么是 identity、organization、points、resources、borrowing、projects 这些域。
+- [后端业务域内部架构](./02-架构设计/04-后端业务域内部架构.md)：解释业务域下面如何继续按能力、聚合和状态机拆分。
+- [数据库设计草案](./02-架构设计/02-数据库设计.md)：看核心表和字段。
+- [功能工作流](./02-架构设计/05-功能工作流.md)：看旧系统和新系统的流程差异。
 
 ### 要做部署、Git 或本地环境
 
 看：
 
-- [项目结构规划](./project-structure.md)；
-- [仓库与版本管理](./repository-versioning.md)；
-- [环境、部署与发布周期](./environment-release-ops.md)。
+- [项目结构规划](./03-工程运维/01-项目结构规划.md)；
+- [仓库与版本管理](./03-工程运维/03-仓库与版本管理.md)；
+- [环境、部署与发布周期](./03-工程运维/04-环境部署与发布.md)。
 
 ## 后端代码怎么进来、怎么出去
 
@@ -92,9 +92,25 @@ HTTP 请求
 
 ## 文档列表
 
-- 项目主线：[需求核对清单](./requirements-checklist.md)、[第一阶段实施路线图](./phase-1-roadmap.md)、[后端基础设施清单](./backend-foundation-checklist.md)。
-- 设计细节：[业务域划分](./domain-division.md)、[后端业务域内部架构](./backend-domain-architecture.md)、[数据库设计草案](./database-design.md)、[API 契约草案](./api-contract.md)、[功能工作流](./workflows.md)。
-- 工程与运维：[项目结构规划](./project-structure.md)、[仓库与版本管理](./repository-versioning.md)、[环境、部署与发布周期](./environment-release-ops.md)、[后端代码注释与工程化规范](./backend-code-style.md)。
+```text
+rebuild/
+  README.md                      # 当前页：项目状态、阅读顺序、文档地图
+  01-先读/                       # 接手项目时先看这里
+    01-需求核对清单.md
+    02-第一阶段路线图.md
+    03-后端基础设施清单.md
+  02-架构设计/                   # 业务、接口、数据库和流程设计
+    01-API契约.md
+    02-数据库设计.md
+    03-业务域划分.md
+    04-后端业务域内部架构.md
+    05-功能工作流.md
+  03-工程运维/                   # 代码规范、仓库、环境和发布
+    01-项目结构规划.md
+    02-后端代码规范.md
+    03-仓库与版本管理.md
+    04-环境部署与发布.md
+```
 
 ## 文档维护规则
 

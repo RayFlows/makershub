@@ -2,13 +2,13 @@
 
 后续 Codex/AI 在本仓库继续开发前，必须先阅读：
 
-- `apps/docs/docs/rebuild/requirements-checklist.md`
-- `apps/docs/docs/rebuild/backend-code-style.md`
+- `apps/docs/docs/rebuild/01-先读/01-需求核对清单.md`
+- `apps/docs/docs/rebuild/03-工程运维/02-后端代码规范.md`
 
 核心要求：
 
 - 后端 Python 文件必须保持“文件路径头 + 中文模块说明 + 分区注释 + 关键函数 docstring”的工程化注释风格。
 - 重构前要主动查看旧 `makershub-backend` 和小程序代码，把它们作为业务流程、注释风格和接口行为参照；重构不是照搬旧实现，但不能脱离旧业务语义。
 - 业务约束必须沉淀到代码注释和仓库文档中，不能只留在对话上下文里。
-- 身份链路以 `requirements-checklist.md` 为准，普通用户不能从网页端先注册再绑定微信。
+- 身份链路以 `01-需求核对清单.md` 为准，普通用户不能从网页端先注册再绑定微信。
 - 修改代码后要运行相应 lint/test；涉及文档时要运行文档构建。

@@ -26,7 +26,7 @@
 - 一个业务链路有独立状态机，例如借用、项目审核、积分规则审批；
 - 新增功能需要频繁修改同一个大文件的多个分区。
 
-具体结构以 `apps/docs/docs/rebuild/backend-domain-architecture.md` 为准。
+具体结构以 `apps/docs/docs/rebuild/02-架构设计/04-后端业务域内部架构.md` 为准。
 
 当前 `identity` 和 `points` 已经完成第一轮二级能力拆分；`organization` 接下来也需要
 继续拆成成员、部门、职务等能力模块。后续新增 `resources`、`borrowing`、`projects`

@@ -81,7 +81,7 @@ Authorization: Bearer <access_token>
 
 ## 注释与工程化要求
 
-后端 Python 文件必须遵守文档站中的 [后端代码注释与工程化规范](../../docs/docs/rebuild/backend-code-style.md)：
+后端 Python 文件必须遵守文档站中的 [后端代码注释与工程化规范](../../docs/docs/rebuild/03-工程运维/02-后端代码规范.md)：
 
 - 每个 Python 文件必须有文件路径头；
 - 每个 Python 文件必须有中文模块级说明；
