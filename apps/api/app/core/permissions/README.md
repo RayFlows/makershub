@@ -31,6 +31,7 @@
   - `points.temporary_rule.apply`
   - `points.temporary_rule.review`
   - `points.manual.adjust`
+  - `workbench.task.publish`
 - 首批核心角色：
   - `system_super_admin`：唯一 `999` 母账号，包含系统兜底权限和指定/恢复 `998` 权限；
   - `system_operator`：`998` 管理员，包含系统兜底权限；
@@ -40,6 +41,7 @@
   - `points_rule_applicant`：提交临时积分规则申请；
   - `points_rule_reviewer`：审批、驳回和撤回临时积分规则；
   - `points_rule_manager`：维护固定积分规则，并处理临时规则申请和审批；
+  - `workbench_task_publisher`：发布工作台任务，并审核自己发布任务的完成结果；
 
 ## 尚未落地
 

@@ -13,7 +13,8 @@
 - `organization`：成员资料、部门、职务关系；
 - `audit`：审计日志和重要操作追踪；
 - `files`：文件元数据、对象 key 生成和文件状态管理；
-- `points`：积分账户、冻结记录、积分流水和受控人工调整。
+- `points`：积分账户、冻结记录、积分流水、积分规则和受控人工调整；
+- `workbench`：任务发布、悬赏领取、完成提交和审核发分。
 
 ## 域内拆分规则
 
@@ -28,6 +29,6 @@
 
 具体结构以 `apps/docs/docs/rebuild/02-架构设计/04-后端业务域内部架构.md` 为准。
 
-当前 `identity` 和 `points` 已经完成第一轮二级能力拆分；`organization` 接下来也需要
-继续拆成成员、部门、职务等能力模块。后续新增 `resources`、`borrowing`、`projects`
-时不能再先写成单个大 service。
+当前 `identity`、`organization`、`points` 已经完成第一轮二级能力拆分；`workbench`
+已按任务能力起步。后续新增 `resources`、`borrowing`、`projects` 时不能再先写成单个
+大 service。

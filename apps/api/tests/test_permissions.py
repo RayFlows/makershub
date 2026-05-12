@@ -56,6 +56,7 @@ def test_core_permission_registry_contains_required_points() -> None:
     assert "points.temporary_rule.apply" in codes
     assert "points.temporary_rule.review" in codes
     assert "points.manual.adjust" in codes
+    assert "workbench.task.publish" in codes
 
 
 def test_permission_registry_rejects_duplicate_code() -> None:
@@ -105,6 +106,7 @@ async def test_sync_registered_permissions_creates_roles_and_permissions() -> No
         "points_rule_applicant",
         "points_rule_reviewer",
         "points_rule_manager",
+        "workbench_task_publisher",
     }
 
     await engine.dispose()

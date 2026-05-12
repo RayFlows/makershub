@@ -169,6 +169,12 @@ DEFAULT_ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
             "points.temporary_rule.review",
         ),
     ),
+    RoleDefinition(
+        code="workbench_task_publisher",
+        name="工作台任务发布人",
+        description="发布指定任务和悬赏任务，审核自己发布任务的完成结果。",
+        permission_codes=("system.admin.access", "workbench.task.publish"),
+    ),
 )
 
 

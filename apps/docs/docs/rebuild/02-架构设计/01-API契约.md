@@ -454,8 +454,19 @@ Authorization: Bearer <token>
 - 指定任务发布后直接待完成；
 - 悬赏任务领取后直接待完成；
 - 任务完成由执行人提交，发布人审核；
+- 任务发布必须引用已有积分规则，发布人不能临时填写积分数；
+- 审核通过后由系统按积分规则发放积分，并回写积分流水 ID；
+- 如果审核时积分规则已撤回，任务进入“规则撤回待处理”，不自动发分；
 - 多场地值班报名时必须选择具体场地；
 - 同一个值班消息下，一个成员只能报名一个场地。
+
+当前实现状态：
+
+- 已开放工作台任务发布、查询、领取、提交和审核接口；
+- 已接入 `workbench.task.publish` 权限点和 `workbench_task_publisher` 角色；
+- 已接入 `workbench.task.publish`、`workbench.task.claim`、`workbench.task.submit`、
+  `workbench.task.review` 审计；
+- 值班消息、排班、清洁任务模板和工作台导出仍待实现。
 
 ### 内容
 

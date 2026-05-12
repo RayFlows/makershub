@@ -202,6 +202,13 @@ def register_core_permissions() -> None:
             description="受控人工补发或扣减积分，用于系统兜底和异常修复。",
             risk_level=PermissionRiskLevel.CRITICAL,
         ),
+        PermissionPoint(
+            code="workbench.task.publish",
+            name="发布工作台任务",
+            module="workbench",
+            description="发布指定任务或悬赏任务，任务积分必须引用已有积分规则。",
+            risk_level=PermissionRiskLevel.MEDIUM,
+        ),
     ]:
         if permission_registry.get(point.code) is None:
             permission_registry.register(point)

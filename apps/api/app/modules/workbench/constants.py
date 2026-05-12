@@ -1,0 +1,25 @@
+# app/modules/workbench/constants.py
+"""
+工作台常量
+
+工作台会逐步承载任务、排班、值班和清洁等日常运营流程。本文件先集中保存任务状态、
+分配方式和可见范围，避免路由、服务和测试里散落难以追踪的字符串。
+"""
+
+WORKBENCH_TASK_ASSIGNMENT_ASSIGNED = "assigned"
+WORKBENCH_TASK_ASSIGNMENT_BOUNTY = "bounty"
+
+WORKBENCH_TASK_VISIBILITY_DEPARTMENT = "department"
+WORKBENCH_TASK_VISIBILITY_ASSOCIATION = "association"
+WORKBENCH_TASK_VISIBILITY_PUBLIC = "public"
+
+WORKBENCH_TASK_STATUS_PENDING_CLAIM = "pending_claim"
+WORKBENCH_TASK_STATUS_PENDING_COMPLETION = "pending_completion"
+WORKBENCH_TASK_STATUS_PENDING_REVIEW = "pending_review"
+WORKBENCH_TASK_STATUS_COMPLETED = "completed"
+WORKBENCH_TASK_STATUS_REJECTED = "rejected"
+WORKBENCH_TASK_STATUS_CANCELLED = "cancelled"
+WORKBENCH_TASK_STATUS_RULE_REVOKED_PENDING = "rule_revoked_pending"
+
+WORKBENCH_TASK_REVIEW_APPROVE = "approve"
+WORKBENCH_TASK_REVIEW_REJECT = "reject"
