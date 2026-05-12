@@ -93,7 +93,8 @@ async def test_sync_registered_permissions_creates_roles_and_permissions() -> No
 
     async with session_factory() as session:
         permissions = list(await session.scalars(select(Permission)))
-        roles = list(await session.scalars(select(Role)))
+        repository = PermissionRepository(session)
+        roles = await repository.list_roles()
 
     assert result.permission_count == len(permission_registry.list())
     assert second_result.permission_count == result.permission_count
@@ -108,6 +109,14 @@ async def test_sync_registered_permissions_creates_roles_and_permissions() -> No
         "points_rule_manager",
         "workbench_task_publisher",
     }
+
+    workbench_role = next(item for item in roles if item.code == "workbench_task_publisher")
+    permission_codes = {
+        relation.permission.code
+        for relation in workbench_role.role_permissions
+        if relation.permission is not None
+    }
+    assert permission_codes >= {"workbench.task.publish", "points.rule.view"}
 
     await engine.dispose()
 

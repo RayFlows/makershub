@@ -92,6 +92,108 @@ export interface UpdateMemberProfilePayload {
   bio?: string | null;
 }
 
+export interface CurrentUserPermissions {
+  user_id: number;
+  permissions: string[];
+  is_super_admin: boolean;
+  is_system_operator: boolean;
+}
+
+export interface PointAccount {
+  user_id: number;
+  balance: number;
+  available_balance: number;
+  frozen_balance: number;
+  status: string;
+  updated_at: string;
+}
+
+export interface PointLedgerEntry {
+  id: number;
+  user_id: number;
+  direction: string;
+  amount: number;
+  balance_after: number;
+  available_balance_after: number;
+  frozen_balance_after: number;
+  business_type: string;
+  business_id: string | null;
+  idempotency_key: string | null;
+  related_hold_id: number | null;
+  reason: string | null;
+  operator_id: number | null;
+  created_at: string;
+}
+
+export interface PointLedgerPage {
+  items: PointLedgerEntry[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface PointRule {
+  id: number;
+  code: string;
+  name: string;
+  rule_type: string;
+  status: string;
+  version: number;
+  amount: number;
+  description: string | null;
+  effective_from: string | null;
+  effective_to: string | null;
+  created_by: number | null;
+  updated_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkbenchTask {
+  id: number;
+  title: string;
+  task_type: string;
+  assignment_type: "assigned" | "bounty";
+  visibility: "department" | "association" | "public";
+  department_id: number | null;
+  content: string;
+  deadline: string | null;
+  status: string;
+  publisher_id: number;
+  assignee_id: number | null;
+  claimed_at: string | null;
+  point_rule_id: number;
+  point_rule_amount: number;
+  submission_content: string | null;
+  submitted_at: string | null;
+  reviewed_by: number | null;
+  reviewed_at: string | null;
+  review_comment: string | null;
+  completed_at: string | null;
+  point_ledger_entry_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkbenchTaskPage {
+  items: WorkbenchTask[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface CreateWorkbenchTaskPayload {
+  title: string;
+  task_type: string;
+  assignment_type: "assigned" | "bounty";
+  visibility: "department" | "association" | "public";
+  department_id?: number | null;
+  content: string;
+  deadline?: string | null;
+  point_rule_id: number;
+  assignee_id?: number | null;
+}
+
 interface ApiEnvelope<T> {
   success: boolean;
   data?: T;
@@ -217,5 +319,85 @@ export function updateMyMemberProfile(token: string, body: UpdateMemberProfilePa
     method: "PATCH",
     token,
     body,
+  });
+}
+
+export function getMyPermissions(token: string) {
+  return apiRequest<CurrentUserPermissions>("/permissions/me", {
+    method: "GET",
+    token,
+  });
+}
+
+export function getMyPointAccount(token: string) {
+  return apiRequest<PointAccount>("/me/points/account", {
+    method: "GET",
+    token,
+  });
+}
+
+export function getMyPointLedger(token: string, page = 1, pageSize = 10) {
+  return apiRequest<PointLedgerPage>(`/me/points/ledger?page=${page}&page_size=${pageSize}`, {
+    method: "GET",
+    token,
+  });
+}
+
+export function listPointRules(token: string) {
+  return apiRequest<PointRule[]>("/points/rules", {
+    method: "GET",
+    token,
+  });
+}
+
+export function listWorkbenchTasks(
+  token: string,
+  params: { mine?: boolean; available_to_claim?: boolean; status?: string } = {},
+) {
+  const query = new URLSearchParams({ page: "1", page_size: "20" });
+  if (params.mine !== undefined) query.set("mine", String(params.mine));
+  if (params.available_to_claim !== undefined) {
+    query.set("available_to_claim", String(params.available_to_claim));
+  }
+  if (params.status) query.set("status", params.status);
+  return apiRequest<WorkbenchTaskPage>(`/workbench/tasks?${query.toString()}`, {
+    method: "GET",
+    token,
+  });
+}
+
+export function createWorkbenchTask(token: string, body: CreateWorkbenchTaskPayload) {
+  return apiRequest<WorkbenchTask>("/workbench/tasks", {
+    method: "POST",
+    token,
+    body,
+  });
+}
+
+export function claimWorkbenchTask(token: string, taskId: number) {
+  return apiRequest<WorkbenchTask>(`/workbench/tasks/${taskId}/claim`, {
+    method: "POST",
+    token,
+  });
+}
+
+export function submitWorkbenchTask(token: string, taskId: number, submissionContent: string) {
+  return apiRequest<WorkbenchTask>(`/workbench/tasks/${taskId}/submit`, {
+    method: "POST",
+    token,
+    body: { submission_content: submissionContent },
+  });
+}
+
+export function reviewWorkbenchTask(
+  token: string,
+  taskId: number,
+  action: "approve" | "reject",
+  reviewComment: string,
+) {
+  return apiRequest<WorkbenchTask>(`/workbench/tasks/${taskId}/review`, {
+    method: "POST",
+    token,
+    body: { action, review_comment: reviewComment },
   });
 }
