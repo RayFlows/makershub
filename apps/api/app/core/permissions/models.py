@@ -42,7 +42,7 @@ class Role(Base, IdMixin, TimestampMixin):
     """
     角色表。
 
-    角色是一组权限点的集合；真实授权还需要 user_roles 上的作用域。
+    角色是一组权限点的集合；真实授权还需要 user_role_grants 上的作用域。
     """
 
     __tablename__ = "roles"
@@ -55,14 +55,21 @@ class Role(Base, IdMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
 
     role_permissions: Mapped[list[RolePermission]] = relationship(back_populates="role")
-    user_roles: Mapped[list[UserRole]] = relationship(back_populates="role")
+    user_role_grants: Mapped[list[UserRoleGrant]] = relationship(back_populates="role")
 
 
 class RolePermission(Base, TimestampMixin):
     """
     角色权限关系表。
 
-    复合主键避免同一角色重复授予同一权限点。
+    这是一张纯链接表，连接 roles.id 和 permissions.id：
+    - roles 记录“角色是什么”，例如 organization_manager；
+    - permissions 记录“权限点是什么”，例如 organization.member.manage；
+    - role_permissions 记录“某个角色包含哪些权限点”。
+
+    表里只存数字外键是为了避免重复保存角色名和权限名；需要人类可读信息时，
+    后台或排查 SQL 应该 join roles 和 permissions。复合主键避免同一角色重复
+    绑定同一权限点。
     """
 
     __tablename__ = "role_permissions"
@@ -80,7 +87,7 @@ class RolePermission(Base, TimestampMixin):
     permission: Mapped[Permission] = relationship(back_populates="role_permissions")
 
 
-class UserRole(Base, IdMixin, TimestampMixin):
+class UserRoleGrant(Base, IdMixin, TimestampMixin):
     """
     用户角色授权表。
 
@@ -88,7 +95,7 @@ class UserRole(Base, IdMixin, TimestampMixin):
     revoked_at 为空表示当前有效，历史授权记录保留用于审计追溯。
     """
 
-    __tablename__ = "user_roles"
+    __tablename__ = "user_role_grants"
 
     # --- 授权主体 ---
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
@@ -107,10 +114,10 @@ class UserRole(Base, IdMixin, TimestampMixin):
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    role: Mapped[Role] = relationship(back_populates="user_roles")
+    role: Mapped[Role] = relationship(back_populates="user_role_grants")
 
     __table_args__ = (
-        Index("ix_user_roles_user_id_revoked_at", "user_id", "revoked_at"),
-        Index("ix_user_roles_role_id_revoked_at", "role_id", "revoked_at"),
-        Index("ix_user_roles_scope", "scope_type", "scope_id"),
+        Index("ix_user_role_grants_user_id_revoked_at", "user_id", "revoked_at"),
+        Index("ix_user_role_grants_role_id_revoked_at", "role_id", "revoked_at"),
+        Index("ix_user_role_grants_scope", "scope_type", "scope_id"),
     )

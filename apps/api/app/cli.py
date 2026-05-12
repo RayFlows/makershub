@@ -19,7 +19,7 @@ import os
 from app.core.database.session import AsyncSessionLocal, close_database_engine
 from app.core.permissions.service import sync_registered_permissions
 from app.modules.audit.service import AuditLogEntry, record_audit_log
-from app.modules.identity.service import bootstrap_super_admin
+from app.modules.identity.bootstrap import bootstrap_super_admin
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -78,7 +78,7 @@ async def run_bootstrap_super_admin(args: argparse.Namespace) -> None:
                 target_type="user",
                 target_id=str(result.user.id),
                 after_snapshot={
-                    "email": result.local_account.email,
+                    "email": result.email_password_account.email,
                     "position": "999",
                 },
                 extra={"operator": getpass.getuser()},
@@ -88,7 +88,7 @@ async def run_bootstrap_super_admin(args: argparse.Namespace) -> None:
         )
         await session.commit()
 
-    print(f"created={result.created} user_id={result.user.id} email={result.local_account.email}")
+    print(f"created={result.created} user_id={result.user.id} email={result.email_password_account.email}")
 
 
 async def run_sync_permissions() -> None:

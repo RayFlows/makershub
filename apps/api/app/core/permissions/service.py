@@ -11,18 +11,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import AppError
+from app.core.permissions.models import UserRoleGrant
 from app.core.permissions.registry import permission_registry
 from app.core.permissions.repository import PermissionRepository
 from app.core.permissions.types import PermissionDecision
+from app.modules.identity.repositories import IdentityRepository
+from app.modules.organization.models import Department
 
+# --- 系统权限常量 ---
 SYSTEM_ADMIN_PERMISSION_CODES = frozenset(
     {
         "system.admin.access",
         "system.audit.view",
         "system.permission.manage",
         "files.manage",
+        "points.manual.adjust",
     },
 )
 """
@@ -47,6 +54,21 @@ SUPER_ADMIN_ONLY_PERMISSION_CODES = frozenset(
 """
 
 
+SYSTEM_OPERATOR_ROLE_CODES = frozenset({"system_super_admin", "system_operator"})
+"""
+不能通过普通权限写接口授予的系统底层角色。
+
+998 与 999 的入口来自系统职务，不来自普通角色授权。999 唯一多出来的能力是指定或
+恢复 998；把这两个角色挡在通用授权接口之外，可以避免后台业务管理员误把底层兜底
+身份当成日常业务角色分配。
+"""
+
+
+SUPPORTED_USER_ROLE_SCOPE_TYPES = frozenset({"global", "department"})
+"""第一阶段用户角色授权支持的作用域类型。"""
+
+
+# --- 服务层数据结构 ---
 @dataclass(frozen=True)
 class RoleDefinition:
     """系统预置角色定义。"""
@@ -76,6 +98,7 @@ class UserPermissionSummary:
     is_system_operator: bool
 
 
+# --- 预置角色定义 ---
 DEFAULT_ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
     RoleDefinition(
         code="system_super_admin",
@@ -106,9 +129,16 @@ DEFAULT_ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         description="查看系统审计日志和高风险操作记录。",
         permission_codes=("system.admin.access", "system.audit.view"),
     ),
+    RoleDefinition(
+        code="points_manager",
+        name="积分账本查看员",
+        description="查看成员积分账户和积分流水，不包含人工调整积分能力。",
+        permission_codes=("system.admin.access", "points.ledger.view"),
+    ),
 )
 
 
+# --- 权限注册同步 ---
 async def sync_registered_permissions(session: AsyncSession) -> PermissionSyncResult:
     """
     把内存权限注册表同步到数据库。
@@ -138,6 +168,103 @@ async def sync_registered_permissions(session: AsyncSession) -> PermissionSyncRe
     )
 
 
+# --- 用户角色授权 ---
+async def list_user_role_grants(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    include_revoked: bool = True,
+) -> list[UserRoleGrant]:
+    """
+    列出某个用户的角色授权记录。
+
+    该接口服务后台权限页，默认带出已撤销记录，方便运维回看“谁在什么时候给过什么权限”。
+    """
+
+    await _ensure_user_exists(session, user_id=user_id)
+    repository = PermissionRepository(session)
+    return await repository.list_user_role_grants(user_id=user_id, include_revoked=include_revoked)
+
+
+async def grant_user_role(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    role_code: str,
+    actor_id: int,
+    scope_type: str = "global",
+    scope_id: int | None = None,
+) -> UserRoleGrant:
+    """
+    给用户授予业务角色。
+
+    注意:
+        998/999 不通过本函数产生。它们是底层系统职务，由 999 专门指定或运维初始化；
+        这里仅处理组织管理、审计查看等可审计的业务角色授权。
+    """
+
+    await _ensure_user_exists(session, user_id=user_id)
+    normalized_scope_type, normalized_scope_id = await _normalize_user_role_grant_scope(
+        session,
+        scope_type=scope_type,
+        scope_id=scope_id,
+    )
+
+    repository = PermissionRepository(session)
+    role = await repository.get_role_by_code(role_code.strip())
+    if role is None:
+        raise AppError("ROLE_NOT_FOUND", "角色不存在", status_code=404)
+    if role.status != "active":
+        raise AppError("ROLE_INACTIVE", "角色未启用，不能授权", status_code=409)
+    if role.code in SYSTEM_OPERATOR_ROLE_CODES:
+        raise AppError(
+            "SYSTEM_ROLE_GRANT_FORBIDDEN",
+            "998/999 系统底层角色不能通过普通权限接口授予",
+            status_code=403,
+        )
+
+    user_role_grant = await repository.grant_role_to_user(
+        user_id=user_id,
+        role=role,
+        granted_by=actor_id,
+        scope_type=normalized_scope_type,
+        scope_id=normalized_scope_id,
+    )
+    await session.flush()
+    return user_role_grant
+
+
+async def revoke_user_role_grant(
+    session: AsyncSession,
+    *,
+    user_role_grant_id: int,
+) -> UserRoleGrant:
+    """
+    撤销用户角色授权。
+
+    撤销只写入 revoked_at，不删除历史记录。这样审计日志、后台权限页和后续异常追溯
+    都能看到完整授权链路。
+    """
+
+    repository = PermissionRepository(session)
+    user_role_grant = await repository.get_user_role_grant_by_id(user_role_grant_id)
+    if user_role_grant is None:
+        raise AppError("USER_ROLE_GRANT_NOT_FOUND", "用户角色授权记录不存在", status_code=404)
+    if user_role_grant.role is not None and user_role_grant.role.code in SYSTEM_OPERATOR_ROLE_CODES:
+        raise AppError(
+            "SYSTEM_ROLE_REVOKE_FORBIDDEN",
+            "998/999 系统底层角色不能通过普通权限接口撤销",
+            status_code=403,
+        )
+    if user_role_grant.revoked_at is not None:
+        return user_role_grant
+
+    user_role_grant = await repository.revoke_user_role_grant(user_role_grant)
+    await session.flush()
+    return user_role_grant
+
+
+# --- 权限判断 ---
 async def get_user_permission_summary(
     session: AsyncSession,
     *,
@@ -212,10 +339,7 @@ async def check_user_permission(
 
     repository = PermissionRepository(session)
     is_super_admin = await repository.user_has_system_position(user_id=user_id, position_code="999")
-    if (
-        is_super_admin
-        and permission_code in SYSTEM_ADMIN_PERMISSION_CODES | SUPER_ADMIN_ONLY_PERMISSION_CODES
-    ):
+    if is_super_admin and permission_code in SYSTEM_ADMIN_PERMISSION_CODES | SUPER_ADMIN_ONLY_PERMISSION_CODES:
         return PermissionDecision(
             allowed=True,
             permission_code=permission_code,
@@ -250,3 +374,46 @@ async def check_user_permission(
         scope_type=scope_type,
         scope_id=scope_id,
     )
+
+
+# --- 内部校验工具 ---
+async def _ensure_user_exists(session: AsyncSession, *, user_id: int) -> None:
+    """确认授权目标用户存在。"""
+
+    identity_repository = IdentityRepository(session)
+    user = await identity_repository.get_user_by_id(user_id)
+    if user is None:
+        raise AppError("USER_NOT_FOUND", "用户不存在", status_code=404)
+
+
+async def _normalize_user_role_grant_scope(
+    session: AsyncSession,
+    *,
+    scope_type: str,
+    scope_id: int | None,
+) -> tuple[str, int | None]:
+    """
+    规范化角色作用域。
+
+    第一阶段只落地全局和部门作用域。项目、资源、场地等作用域必须等对应业务域模型
+    完整后再开放，避免写入无法校验的权限边界。
+    """
+
+    normalized_scope_type = scope_type.strip().lower() if scope_type else "global"
+    if normalized_scope_type not in SUPPORTED_USER_ROLE_SCOPE_TYPES:
+        raise AppError("PERMISSION_SCOPE_UNSUPPORTED", "暂不支持该权限作用域", status_code=422)
+
+    if normalized_scope_type == "global":
+        if scope_id is not None:
+            raise AppError("PERMISSION_SCOPE_INVALID", "全局授权不能携带 scope_id", status_code=422)
+        return normalized_scope_type, None
+
+    if scope_id is None:
+        raise AppError("PERMISSION_SCOPE_INVALID", "部门作用域授权必须指定部门 ID", status_code=422)
+
+    department = await session.scalar(
+        select(Department).where(Department.id == scope_id, Department.status == "active"),
+    )
+    if department is None:
+        raise AppError("DEPARTMENT_NOT_FOUND", "部门不存在或未启用", status_code=404)
+    return normalized_scope_type, scope_id

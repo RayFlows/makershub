@@ -2,7 +2,7 @@
 """
 身份领域服务测试
 
-本文件验证内部用户主体、微信身份、本地账号、邮箱绑定和唯一 999 初始化等核心规则。
+本文件验证内部用户主体、微信身份、邮箱密码账号、邮箱绑定和唯一 999 初始化等核心规则。
 """
 
 from __future__ import annotations
@@ -14,13 +14,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.core.database.base import Base
 from app.core.errors import AppError
 from app.core.security import hash_password, verify_password
-from app.modules.identity.models import EmailVerificationCode, LocalAccount, User, WechatAccount
-from app.modules.identity.service import (
+from app.modules.identity.accounts import (
     bind_verified_email_to_user,
-    bootstrap_super_admin,
     login_wechat_identity,
-    normalize_email,
 )
+from app.modules.identity.bootstrap import bootstrap_super_admin
+from app.modules.identity.models import EmailPasswordAccount, EmailVerificationCode, User, WechatAccount
+from app.modules.identity.utils import normalize_email
 from app.modules.organization.models import Position, UserPosition
 
 
@@ -34,12 +34,12 @@ def test_password_hash_round_trip() -> None:
 
 def test_identity_metadata_contains_expected_tables() -> None:
     assert User.__tablename__ in Base.metadata.tables
-    assert LocalAccount.__tablename__ in Base.metadata.tables
+    assert EmailPasswordAccount.__tablename__ in Base.metadata.tables
     assert WechatAccount.__tablename__ in Base.metadata.tables
     assert EmailVerificationCode.__tablename__ in Base.metadata.tables
     assert Position.__tablename__ in Base.metadata.tables
     assert UserPosition.__tablename__ in Base.metadata.tables
-    assert LocalAccount.__table__.c.password_hash.nullable is True
+    assert EmailPasswordAccount.__table__.c.password_hash.nullable is True
 
 
 def test_normalize_email() -> None:
@@ -64,7 +64,7 @@ async def test_bootstrap_super_admin_creates_user_account_and_position() -> None
         await session.commit()
 
     async with session_factory() as session:
-        account = await session.scalar(select(LocalAccount))
+        account = await session.scalar(select(EmailPasswordAccount))
         position = await session.scalar(select(Position).where(Position.code == "999"))
         user_position = await session.scalar(select(UserPosition))
 
@@ -133,11 +133,19 @@ async def test_wechat_login_creates_and_reuses_user_subject() -> None:
             unionid="union_1",
         )
         await session.commit()
+        position = await session.scalar(select(Position).where(Position.code == "0"))
+        user_position = await session.scalar(
+            select(UserPosition).where(UserPosition.user_id == user_id, UserPosition.revoked_at.is_(None)),
+        )
 
     assert first.created is True
     assert second.created is False
     assert second.user.id == user_id
     assert second.wechat_account.unionid == "union_1"
+    assert position is not None
+    assert position.name == "外部成员"
+    assert user_position is not None
+    assert user_position.position_id == position.id
 
     await engine.dispose()
 
@@ -163,7 +171,7 @@ async def test_wechat_login_rejects_unionid_conflict() -> None:
 
 
 @pytest.mark.asyncio
-async def test_bind_verified_email_creates_pending_local_account() -> None:
+async def test_bind_verified_email_creates_pending_email_password_account() -> None:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
@@ -180,10 +188,10 @@ async def test_bind_verified_email_creates_pending_local_account() -> None:
         await session.commit()
 
     assert result.created is True
-    assert result.local_account.email == "ray@example.com"
-    assert result.local_account.password_hash is None
-    assert result.local_account.password_set_at is None
-    assert result.local_account.email_verified_at is not None
+    assert result.email_password_account.email == "ray@example.com"
+    assert result.email_password_account.password_hash is None
+    assert result.email_password_account.password_set_at is None
+    assert result.email_password_account.email_verified_at is not None
 
     await engine.dispose()
 

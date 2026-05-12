@@ -24,8 +24,8 @@ from app.core.security import decode_access_token
 from app.core.security.middleware import get_client_ip
 from app.modules.audit.service import AuditLogEntry, record_audit_log
 from app.modules.identity.models import User
-from app.modules.identity.repository import IdentityRepository
-from app.modules.identity.service import validate_auth_session
+from app.modules.identity.repositories import IdentityRepository
+from app.modules.identity.sessions import validate_auth_session
 from app.shared.request_context import get_request_id
 
 bearer_scheme = HTTPBearer(auto_error=False)

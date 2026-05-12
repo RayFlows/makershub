@@ -25,7 +25,7 @@ from app.core.permissions import (
     PermissionRiskLevel,
     permission_registry,
 )
-from app.core.permissions.models import Permission, Role
+from app.core.permissions.models import Permission, Role, RolePermission, UserRoleGrant
 from app.core.permissions.repository import PermissionRepository
 from app.core.permissions.service import (
     check_user_permission,
@@ -34,7 +34,7 @@ from app.core.permissions.service import (
 )
 from app.main import create_app
 from app.modules.audit.models import AuditLog
-from app.modules.identity.models import AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount
+from app.modules.identity.models import AuthSession, EmailPasswordAccount, EmailVerificationCode, User, WechatAccount
 from app.modules.organization.models import Position, UserPosition
 
 
@@ -50,6 +50,8 @@ def test_core_permission_registry_contains_required_points() -> None:
     assert "organization.position.manage" in codes
     assert "system.operator.manage" in codes
     assert "system.super_admin.recover" in codes
+    assert "points.ledger.view" in codes
+    assert "points.manual.adjust" in codes
 
 
 def test_permission_registry_rejects_duplicate_code() -> None:
@@ -90,9 +92,13 @@ async def test_sync_registered_permissions_creates_roles_and_permissions() -> No
 
     assert result.permission_count == len(permission_registry.list())
     assert second_result.permission_count == result.permission_count
-    assert result.role_count >= 4
+    assert result.role_count >= 5
     assert {item.code for item in permissions} >= {"system.admin.access", "files.manage"}
-    assert {item.code for item in roles} >= {"system_super_admin", "organization_manager"}
+    assert {item.code for item in roles} >= {
+        "system_super_admin",
+        "organization_manager",
+        "points_manager",
+    }
 
     await engine.dispose()
 
@@ -145,7 +151,7 @@ def test_permission_denied_dependency_writes_audit_log(tmp_path: Path) -> None:
     """HTTP 权限依赖拒绝访问时应写入审计日志。"""
 
     # 显式引用模型，确保 Base.metadata 收集认证、权限、审计和组织相关表。
-    _ = (AuthSession, EmailVerificationCode, LocalAccount, WechatAccount, AuditLog, Position, UserPosition)
+    _ = (AuthSession, EmailVerificationCode, EmailPasswordAccount, WechatAccount, AuditLog, Position, UserPosition)
 
     database_path = tmp_path / "permission_denied.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{database_path}")
@@ -198,6 +204,178 @@ def test_permission_denied_dependency_writes_audit_log(tmp_path: Path) -> None:
     assert logs[0].extra["path"] == "/api/v1/permissions"
 
 
+def test_permission_role_write_api_grants_and_revokes_with_audit(tmp_path: Path) -> None:
+    """权限写接口应该授予业务角色、撤销授权，并记录审计日志。"""
+
+    _ = (
+        AuthSession,
+        AuditLog,
+        EmailVerificationCode,
+        EmailPasswordAccount,
+        Permission,
+        Position,
+        Role,
+        RolePermission,
+        UserPosition,
+        UserRoleGrant,
+        WechatAccount,
+    )
+
+    database_path = tmp_path / "permission_write.db"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{database_path}")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def prepare_database() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with session_factory() as session:
+            await sync_registered_permissions(session)
+            await session.commit()
+
+    async def override_get_session() -> AsyncIterator[AsyncSession]:
+        async with session_factory() as session:
+            yield session
+
+    async def grant_bootstrap_role(user_id: int) -> None:
+        async with session_factory() as session:
+            repository = PermissionRepository(session)
+            role = await repository.get_role_by_code("system_super_admin")
+            assert role is not None
+            await repository.grant_role_to_user(user_id=user_id, role=role)
+            await session.commit()
+
+    async def load_audit_logs() -> list[AuditLog]:
+        async with session_factory() as session:
+            result = await session.scalars(select(AuditLog).order_by(AuditLog.id))
+            return list(result)
+
+    asyncio.run(prepare_database())
+    app = create_app()
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        with TestClient(app) as client:
+            admin_login = client.post(
+                "/api/v1/auth/wechat/login",
+                json={"dev_openid": "permission_write_admin"},
+            )
+            target_login = client.post(
+                "/api/v1/auth/wechat/login",
+                json={"dev_openid": "permission_write_target"},
+            )
+            admin_token = admin_login.json()["data"]["access_token"]
+            admin_id = admin_login.json()["data"]["user"]["id"]
+            target_id = target_login.json()["data"]["user"]["id"]
+            asyncio.run(grant_bootstrap_role(admin_id))
+
+            grant_response = client.post(
+                f"/api/v1/permissions/users/{target_id}/roles",
+                headers={"Authorization": f"Bearer {admin_token}"},
+                json={"role_code": "organization_manager", "reason": "授予组织管理测试角色"},
+            )
+            assert grant_response.status_code == 200
+            user_role_grant_id = grant_response.json()["data"]["id"]
+
+            roles_response = client.get(
+                f"/api/v1/permissions/users/{target_id}/roles",
+                headers={"Authorization": f"Bearer {admin_token}"},
+            )
+
+            revoke_response = client.post(
+                f"/api/v1/permissions/role-grants/{user_role_grant_id}/revoke",
+                headers={"Authorization": f"Bearer {admin_token}"},
+                json={"reason": "撤销组织管理测试角色"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+    logs = asyncio.run(load_audit_logs())
+    asyncio.run(engine.dispose())
+
+    assert grant_response.status_code == 200
+    assert grant_response.json()["data"]["role_code"] == "organization_manager"
+    assert roles_response.status_code == 200
+    assert roles_response.json()["data"]["roles"][0]["role_code"] == "organization_manager"
+    assert revoke_response.status_code == 200
+    assert revoke_response.json()["data"]["revoked_at"] is not None
+    assert [log.action for log in logs] == [
+        "permission.user_role_grant.create",
+        "permission.user_role_grant.revoke",
+    ]
+
+
+def test_permission_role_write_api_rejects_system_operator_roles(tmp_path: Path) -> None:
+    """普通权限写接口不能授予 998/999 底层系统角色。"""
+
+    _ = (
+        AuthSession,
+        AuditLog,
+        EmailVerificationCode,
+        EmailPasswordAccount,
+        Permission,
+        Position,
+        Role,
+        RolePermission,
+        UserPosition,
+        UserRoleGrant,
+        WechatAccount,
+    )
+
+    database_path = tmp_path / "permission_system_role.db"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{database_path}")
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def prepare_database() -> None:
+        async with engine.begin() as connection:
+            await connection.run_sync(Base.metadata.create_all)
+        async with session_factory() as session:
+            await sync_registered_permissions(session)
+            await session.commit()
+
+    async def override_get_session() -> AsyncIterator[AsyncSession]:
+        async with session_factory() as session:
+            yield session
+
+    async def grant_bootstrap_role(user_id: int) -> None:
+        async with session_factory() as session:
+            repository = PermissionRepository(session)
+            role = await repository.get_role_by_code("system_super_admin")
+            assert role is not None
+            await repository.grant_role_to_user(user_id=user_id, role=role)
+            await session.commit()
+
+    asyncio.run(prepare_database())
+    app = create_app()
+    app.dependency_overrides[get_session] = override_get_session
+
+    try:
+        with TestClient(app) as client:
+            admin_login = client.post(
+                "/api/v1/auth/wechat/login",
+                json={"dev_openid": "permission_system_role_admin"},
+            )
+            target_login = client.post(
+                "/api/v1/auth/wechat/login",
+                json={"dev_openid": "permission_system_role_target"},
+            )
+            admin_token = admin_login.json()["data"]["access_token"]
+            admin_id = admin_login.json()["data"]["user"]["id"]
+            target_id = target_login.json()["data"]["user"]["id"]
+            asyncio.run(grant_bootstrap_role(admin_id))
+
+            response = client.post(
+                f"/api/v1/permissions/users/{target_id}/roles",
+                headers={"Authorization": f"Bearer {admin_token}"},
+                json={"role_code": "system_operator", "reason": "错误指定 998"},
+            )
+    finally:
+        app.dependency_overrides.clear()
+        asyncio.run(engine.dispose())
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "SYSTEM_ROLE_GRANT_FORBIDDEN"
+
+
 @pytest.mark.asyncio
 async def test_super_admin_position_has_mother_account_permissions_only() -> None:
     """999 是母账号，默认不自动拥有普通业务权限。"""
@@ -235,12 +413,19 @@ async def test_super_admin_position_has_mother_account_permissions_only() -> Non
             user_id=user_id,
             permission_code="organization.member.manage",
         )
+        manual_adjust_decision = await check_user_permission(
+            session,
+            user_id=user_id,
+            permission_code="points.manual.adjust",
+        )
         summary = await get_user_permission_summary(session, user_id=user_id)
 
     assert operator_manage_decision.allowed is True
     assert business_decision.allowed is False
+    assert manual_adjust_decision.allowed is True
     assert summary.is_super_admin is True
     assert "system.operator.manage" in summary.permissions
+    assert "points.manual.adjust" in summary.permissions
     assert "organization.member.manage" not in summary.permissions
 
     await engine.dispose()
@@ -288,15 +473,22 @@ async def test_system_operator_position_has_system_fallback_permissions_only() -
             user_id=user_id,
             permission_code="organization.member.manage",
         )
+        manual_adjust_decision = await check_user_permission(
+            session,
+            user_id=user_id,
+            permission_code="points.manual.adjust",
+        )
         summary = await get_user_permission_summary(session, user_id=user_id)
 
     assert audit_decision.allowed is True
     assert operator_manage_decision.allowed is False
     assert business_decision.allowed is False
+    assert manual_adjust_decision.allowed is True
     assert summary.is_super_admin is False
     assert summary.is_system_operator is True
     assert "system.audit.view" in summary.permissions
     assert "system.operator.manage" not in summary.permissions
+    assert "points.manual.adjust" in summary.permissions
     assert "organization.member.manage" not in summary.permissions
 
     await engine.dispose()

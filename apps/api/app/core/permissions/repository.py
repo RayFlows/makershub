@@ -14,7 +14,7 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.permissions.models import Permission, Role, RolePermission, UserRole
+from app.core.permissions.models import Permission, Role, RolePermission, UserRoleGrant
 from app.core.permissions.registry import PermissionPoint
 from app.modules.organization.models import Position, UserPosition
 from app.shared.time import utc_now
@@ -82,14 +82,57 @@ class PermissionRepository:
     async def list_roles(self, *, active_only: bool = True) -> list[Role]:
         """列出角色。"""
 
-        stmt = select(Role).options(
-            selectinload(Role.role_permissions).selectinload(RolePermission.permission),
-        ).order_by(Role.code)
+        stmt = (
+            select(Role)
+            .options(
+                selectinload(Role.role_permissions).selectinload(RolePermission.permission),
+            )
+            .order_by(Role.code)
+        )
         if active_only:
             stmt = stmt.where(Role.status == "active")
         result = await self.session.scalars(stmt)
         return list(result)
 
+    # --- 用户授权记录 ---
+    async def get_user_role_grant_by_id(self, user_role_grant_id: int) -> UserRoleGrant | None:
+        """按授权记录 ID 查询用户角色关系。"""
+
+        statement = (
+            select(UserRoleGrant)
+            .options(selectinload(UserRoleGrant.role))
+            .where(UserRoleGrant.id == user_role_grant_id)
+        )
+        return await self.session.scalar(statement)
+
+    async def list_user_role_grants(
+        self,
+        *,
+        user_id: int,
+        include_revoked: bool = True,
+    ) -> list[UserRoleGrant]:
+        """
+        查询用户角色授权记录。
+
+        后台权限页需要展示历史撤销记录，默认不隐藏 revoked_at，避免权限变更失去审计线索。
+        """
+
+        statement = (
+            select(UserRoleGrant)
+            .options(selectinload(UserRoleGrant.role))
+            .where(UserRoleGrant.user_id == user_id)
+            .order_by(
+                UserRoleGrant.revoked_at.is_not(None),
+                UserRoleGrant.granted_at.desc(),
+                UserRoleGrant.id.desc(),
+            )
+        )
+        if not include_revoked:
+            statement = statement.where(UserRoleGrant.revoked_at.is_(None))
+        result = await self.session.scalars(statement)
+        return list(result)
+
+    # --- 角色维护 ---
     async def upsert_role(
         self,
         *,
@@ -157,10 +200,10 @@ class PermissionRepository:
             select(Permission.code)
             .join(RolePermission, RolePermission.permission_id == Permission.id)
             .join(Role, Role.id == RolePermission.role_id)
-            .join(UserRole, UserRole.role_id == Role.id)
+            .join(UserRoleGrant, UserRoleGrant.role_id == Role.id)
             .where(
-                UserRole.user_id == user_id,
-                UserRole.revoked_at.is_(None),
+                UserRoleGrant.user_id == user_id,
+                UserRoleGrant.revoked_at.is_(None),
                 Role.status == "active",
                 Permission.status == "active",
             )
@@ -185,10 +228,10 @@ class PermissionRepository:
             select(Permission.id)
             .join(RolePermission, RolePermission.permission_id == Permission.id)
             .join(Role, Role.id == RolePermission.role_id)
-            .join(UserRole, UserRole.role_id == Role.id)
+            .join(UserRoleGrant, UserRoleGrant.role_id == Role.id)
             .where(
-                UserRole.user_id == user_id,
-                UserRole.revoked_at.is_(None),
+                UserRoleGrant.user_id == user_id,
+                UserRoleGrant.revoked_at.is_(None),
                 Role.status == "active",
                 Permission.status == "active",
                 Permission.code == permission_code,
@@ -208,37 +251,39 @@ class PermissionRepository:
         granted_by: int | None = None,
         scope_type: str = "global",
         scope_id: int | None = None,
-    ) -> UserRole:
+    ) -> UserRoleGrant:
         """给用户授予角色。"""
 
         existing = await self.session.scalar(
-            select(UserRole).where(
-                UserRole.user_id == user_id,
-                UserRole.role_id == role.id,
-                UserRole.scope_type == scope_type,
-                UserRole.scope_id == scope_id,
-                UserRole.revoked_at.is_(None),
-            ),
+            select(UserRoleGrant)
+            .options(selectinload(UserRoleGrant.role))
+            .where(
+                UserRoleGrant.user_id == user_id,
+                UserRoleGrant.role_id == role.id,
+                UserRoleGrant.scope_type == scope_type,
+                UserRoleGrant.scope_id == scope_id,
+                UserRoleGrant.revoked_at.is_(None),
+            )
         )
         if existing is not None:
             return existing
 
-        user_role = UserRole(
+        user_role_grant = UserRoleGrant(
             user_id=user_id,
-            role_id=role.id,
+            role=role,
             scope_type=scope_type,
             scope_id=scope_id,
             granted_by=granted_by,
             granted_at=utc_now(),
         )
-        self.session.add(user_role)
-        return user_role
+        self.session.add(user_role_grant)
+        return user_role_grant
 
-    async def revoke_user_role(self, user_role: UserRole) -> UserRole:
+    async def revoke_user_role_grant(self, user_role_grant: UserRoleGrant) -> UserRoleGrant:
         """撤销一条用户角色授权，保留历史记录。"""
 
-        user_role.revoked_at = utc_now()
-        return user_role
+        user_role_grant.revoked_at = utc_now()
+        return user_role_grant
 
     # --- 系统职务映射 ---
     async def user_has_system_position(self, *, user_id: int, position_code: str) -> bool:
@@ -265,10 +310,10 @@ class PermissionRepository:
     def _build_scope_clause(self, *, scope_type: str, scope_id: int | None):
         """构造作用域匹配条件。"""
 
-        specific_scope = UserRole.scope_type == scope_type
+        specific_scope = UserRoleGrant.scope_type == scope_type
         if scope_id is None:
-            specific_scope = and_(specific_scope, UserRole.scope_id.is_(None))
+            specific_scope = and_(specific_scope, UserRoleGrant.scope_id.is_(None))
         else:
-            specific_scope = and_(specific_scope, UserRole.scope_id == scope_id)
+            specific_scope = and_(specific_scope, UserRoleGrant.scope_id == scope_id)
 
-        return or_(UserRole.scope_type == "global", specific_scope)
+        return or_(UserRoleGrant.scope_type == "global", specific_scope)

@@ -160,6 +160,20 @@ def register_core_permissions() -> None:
             description="维护文件元数据、状态和存储对象引用。",
             risk_level=PermissionRiskLevel.HIGH,
         ),
+        PermissionPoint(
+            code="points.ledger.view",
+            name="查看积分账本",
+            module="points",
+            description="查看成员积分账户和积分流水。",
+            risk_level=PermissionRiskLevel.HIGH,
+        ),
+        PermissionPoint(
+            code="points.manual.adjust",
+            name="人工调整积分",
+            module="points",
+            description="受控人工补发或扣减积分，用于系统兜底和异常修复。",
+            risk_level=PermissionRiskLevel.CRITICAL,
+        ),
     ]:
         if permission_registry.get(point.code) is None:
             permission_registry.register(point)

@@ -8,7 +8,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 
 class PermissionItem(BaseModel):
@@ -40,3 +42,32 @@ class CurrentUserPermissions(BaseModel):
     permissions: list[str]
     is_super_admin: bool
     is_system_operator: bool
+
+
+class UserRoleGrantItem(BaseModel):
+    """用户角色授权响应项。"""
+
+    id: int
+    user_id: int
+    role_code: str
+    role_name: str
+    scope_type: str
+    scope_id: int | None
+    granted_by: int | None
+    granted_at: datetime
+    revoked_at: datetime | None
+
+
+class GrantUserRoleRequest(BaseModel):
+    """授予用户角色请求。"""
+
+    role_code: str = Field(min_length=1, max_length=64, description="角色 code")
+    scope_type: str = Field(default="global", max_length=32, description="作用域类型")
+    scope_id: int | None = Field(default=None, description="作用域 ID，全局授权为空")
+    reason: str | None = Field(default=None, max_length=255, description="授权原因")
+
+
+class RevokeUserRoleGrantRequest(BaseModel):
+    """撤销用户角色请求。"""
+
+    reason: str | None = Field(default=None, max_length=255, description="撤销原因")

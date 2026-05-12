@@ -3,7 +3,7 @@
 身份域数据库模型
 
 这里刻意把“用户主体”和“登录凭证”分开：
-users 表示系统里的一个人，local_accounts 和 wechat_accounts 只是登录方式。
+users 表示系统里的一个人，email_password_accounts 和 wechat_accounts 只是登录方式。
 这能避免把用户直接等同于 openid、unionid 或邮箱。
 """
 
@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database.base import Base, IdMixin, SoftDeleteMixin, TimestampMixin
@@ -21,7 +21,7 @@ class User(Base, IdMixin, TimestampMixin, SoftDeleteMixin):
     """系统内部用户主体。
 
     一个用户可以先由小程序微信登录创建，后续再绑定邮箱和密码。
-    第一个 999 则允许通过运维初始化命令先创建本地账号。
+    第一个 999 则允许通过运维初始化命令先创建邮箱密码账号。
     """
 
     __tablename__ = "users"
@@ -34,9 +34,9 @@ class User(Base, IdMixin, TimestampMixin, SoftDeleteMixin):
     remark: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # --- 登录凭证关系 ---
-    # 当前第一版约束为一个用户最多一个本地账号、一个微信账号。
+    # 当前第一版约束为一个用户最多一个邮箱密码账号、一个微信账号。
     # 如果后续支持多个邮箱或多个微信身份，需要先调整需求和唯一约束。
-    local_account: Mapped[LocalAccount | None] = relationship(
+    email_password_account: Mapped[EmailPasswordAccount | None] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         uselist=False,
@@ -52,31 +52,31 @@ class User(Base, IdMixin, TimestampMixin, SoftDeleteMixin):
     )
 
 
-class LocalAccount(Base, IdMixin, TimestampMixin):
+class EmailPasswordAccount(Base, IdMixin, TimestampMixin):
     """邮箱密码登录凭证。
 
     password_hash 允许为空，用于表达“邮箱已绑定，但网页端首次登录尚未设置密码”。
     为空时不能进行密码登录，只能走邮箱验证码首次登录和强制设置密码流程。
     """
 
-    __tablename__ = "local_accounts"
+    __tablename__ = "email_password_accounts"
 
     # --- 账号归属 ---
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"),
-        nullable=False,
-        unique=True,
-    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
     # --- 邮箱与密码状态 ---
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     password_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", index=True)
 
-    user: Mapped[User] = relationship(back_populates="local_account")
+    user: Mapped[User] = relationship(back_populates="email_password_account")
 
-    __table_args__ = (Index("ix_local_accounts_email_status", "email", "status"),)
+    __table_args__ = (
+        UniqueConstraint("email", name="uq_email_password_accounts_email"),
+        UniqueConstraint("user_id", name="uq_email_password_accounts_user_id"),
+        Index("ix_email_password_accounts_email_status", "email", "status"),
+    )
 
 
 class WechatAccount(Base, IdMixin, TimestampMixin):

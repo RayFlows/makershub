@@ -89,30 +89,41 @@ apps/api/
   tests/                        # 后端测试
 ```
 
-每个业务域模块默认包含：
+业务域模块不是最后一级边界。每个业务域先有一个总 README 和必要的模型、类型、事件，
+然后继续按能力、聚合或状态机拆子目录。
+
+小型业务域可以临时保持扁平：
 
 ```text
 modules/<业务域>/
   README.md                     # 说明该业务域负责什么、不负责什么
-  models.py                     # 数据模型
-  schemas.py                    # 请求和响应结构
-  repository.py                 # 数据库访问
-  service.py                    # 业务逻辑
-  permissions.py                # 权限点和作用域规则
-  router.py                     # HTTP 接口
-  events.py                     # 领域事件
+  models.py                     # 该域拥有的数据库事实
+  repository.py                 # 该域仍较小时的数据库访问
+  service.py                    # 该域仍较小时的业务逻辑
 ```
 
-当业务域变大时，可以继续拆子目录，例如：
+一旦业务域变大，必须继续拆二级能力模块：
 
 ```text
-modules/borrowing/
+modules/<业务域>/
   README.md
-  applications/                 # 借用申请
-  reviews/                      # 审核
-  returns/                      # 归还
-  conflicts/                    # 冲突检测
+  models.py 或 models/           # 数据库事实
+  events.py                      # 领域事件
+  types.py                       # 共享值对象
+  policies.py                    # 共享业务策略
+
+  <capability>/
+    README.md
+    service.py
+    repository.py
+    types.py
 ```
+
+HTTP 路由和请求/响应 schema 统一放在 `interfaces/http/v1/<业务域>/`，不要塞回
+`modules`。小程序、成员网页端和后台管理端应该通过同一套接口层进入业务域。
+
+具体拆分阈值和各业务域目标结构见
+[后端业务域内部架构](./backend-domain-architecture.md)。
 
 ### `apps/web`
 

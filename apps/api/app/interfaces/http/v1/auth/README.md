@@ -12,7 +12,7 @@
 - `POST /api/v1/auth/email/send-code`：发送邮箱验证码，支持绑定邮箱和网页端首次登录；
 - `POST /api/v1/auth/email/bind`：已登录用户使用验证码绑定邮箱；
 - `POST /api/v1/auth/email/first-login`：网页端首次邮箱验证码登录；
-- `POST /api/v1/auth/password/set`：首次设置本地账号密码；
+- `POST /api/v1/auth/password/set`：首次设置邮箱密码登录密码；
 - `POST /api/v1/auth/password/login`：网页端邮箱密码登录；
 - `GET /api/v1/auth/me`：通过 `Authorization: Bearer <token>` 获取当前登录用户摘要。
 

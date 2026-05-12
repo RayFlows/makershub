@@ -20,8 +20,8 @@ from app.core.database.base import Base
 from app.main import create_app
 from app.modules.identity.models import (
     AuthSession,
+    EmailPasswordAccount,
     EmailVerificationCode,
-    LocalAccount,
     User,
     WechatAccount,
 )
@@ -33,7 +33,7 @@ def auth_client(tmp_path: Path) -> Iterator[TestClient]:
     """创建使用临时 SQLite 数据库的认证接口测试客户端。"""
 
     # 显式引用模型，确保 Base.metadata 在 create_all 前已经收集身份和组织表。
-    _ = (AuthSession, EmailVerificationCode, LocalAccount, User, WechatAccount, Position, UserPosition)
+    _ = (AuthSession, EmailVerificationCode, EmailPasswordAccount, User, WechatAccount, Position, UserPosition)
 
     database_path = tmp_path / "auth.db"
     engine = create_async_engine(f"sqlite+aiosqlite:///{database_path}")
@@ -356,7 +356,7 @@ def test_first_login_send_code_rejects_unbound_email(auth_client: TestClient) ->
     )
 
     assert response.status_code == 404
-    assert response.json()["error"]["code"] == "LOCAL_ACCOUNT_NOT_FOUND"
+    assert response.json()["error"]["code"] == "EMAIL_PASSWORD_ACCOUNT_NOT_FOUND"
 
 
 def test_wechat_dev_login_reuses_same_user(auth_client: TestClient) -> None:

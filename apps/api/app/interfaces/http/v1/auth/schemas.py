@@ -2,8 +2,8 @@
 """
 身份认证接口请求与响应模型
 
-接口层 schema 只描述 HTTP 契约，不承载业务规则。
-业务规则仍由 modules/identity/service.py 负责。
+接口层 schema 只描述 HTTP 契约，不承载业务规则。身份业务规则已经拆到
+modules/identity 下的 accounts、sessions、email_codes 和 bootstrap 等能力模块。
 """
 
 from __future__ import annotations

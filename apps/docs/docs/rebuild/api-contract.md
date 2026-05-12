@@ -43,6 +43,10 @@
 }
 ```
 
+新接口不再在响应体顶层重复返回 `code: 200`。请求是否成功由 HTTP 状态码和
+`success` 表达；失败时稳定业务错误码放在 `error.code`。旧小程序和旧 Apifox
+用例后续需要迁移到该响应结构，不能继续依赖旧后端的 `data.code === 200` 判断。
+
 ### 分页响应
 
 分页请求参数：
@@ -68,9 +72,9 @@
 认证方式：
 
 - 小程序使用微信登录后签发访问令牌，并在首次进入时创建或找到用户主体；
-- 网页端和后台管理端使用本地账号登录后签发访问令牌；
-- 同一个用户主体可以挂接本地账号和微信身份，但第一版普通用户不能先注册网页账号再绑定微信；
-- 第一个 `999` 是例外，可以通过受控运维初始化命令先创建本地账号，后续再绑定微信；
+- 网页端和后台管理端使用邮箱密码账号登录后签发访问令牌；
+- 同一个用户主体可以挂接邮箱密码账号和微信身份，但第一版普通用户不能先注册网页账号再绑定微信；
+- 第一个 `999` 是例外，可以通过受控运维初始化命令先创建邮箱密码账号，后续再绑定微信；
 - 访问令牌的 `sub` 使用内部用户主键，不使用微信 `openid` 或邮箱；
 - 访问令牌必须携带登录会话 ID，后端通过 `auth_sessions` 判断会话是否已退出、撤销或过期；
 - 访问令牌只证明用户是谁，接口授权必须继续检查权限点和作用域。
@@ -139,11 +143,13 @@ Authorization: Bearer <token>
 
 当前实现：
 
-- 已落地 `permissions`、`roles`、`role_permissions`、`user_roles`；
+- 已落地 `permissions`、`roles`、`role_permissions`、`user_role_grants`；
 - 已落地 `require_permission(...)`；
 - `/auth/me` 和 `/permissions/me` 返回当前用户权限摘要；
 - `998/999` 默认只拥有系统兜底权限；
+- `998/999` 默认拥有 `points.manual.adjust`，用于积分异常修复和受控人工调整；
 - `999` 额外拥有指定或恢复 `998` 的母账号动作权限；
+- 已新增 `points_manager` 角色，只能查看积分账户和流水，不能人工调整积分；
 - 普通业务权限仍然需要业务角色或作用域授权。
 
 ### 幂等
@@ -213,7 +219,7 @@ Authorization: Bearer <token>
 - 普通用户的账号链路以小程序微信登录为前置：先建立微信用户主体，再在小程序个人主页绑定邮箱；
 - 网页端首次邮箱验证码登录只接受已经绑定到用户主体的邮箱，验证通过后强制设置密码，不创建新的普通用户主体；
 - 第一版不支持“网页端先注册普通账号，再绑定微信”的流程；
-- 第一个 `999` 可以通过部署初始化命令创建本地账号，不要求已有微信身份；
+- 第一个 `999` 可以通过部署初始化命令创建邮箱密码账号，不要求已有微信身份；
 - `/auth/wechat/login` 生产环境必须使用微信 `code2session`；本地开发和测试环境可以使用受控 `dev_openid`，生产环境必须禁用；
 - `/auth/wechat/login` 必须返回 `expires_in`、`expires_at`、`refresh_token` 和 `refresh_expires_at`，客户端据此维护登录态；
 - `/auth/me` 是客户端启动态校验接口，不能被页面层绕过成本地 token 存在性判断；
@@ -234,10 +240,10 @@ Authorization: Bearer <token>
 当前实现状态：
 
 - 已完成身份域数据库模型和首批迁移；
-- 已完成本地账号密码哈希工具；
+- 已完成邮箱密码哈希工具；
 - 已完成唯一 `999` 初始化服务；
 - 已完成微信身份登录创建或复用用户主体的服务层逻辑；
-- 已完成已登录微信用户绑定邮箱并生成待设置密码本地账号的服务层逻辑；
+- 已完成已登录微信用户绑定邮箱并生成待设置密码邮箱密码账号的服务层逻辑；
 - 已完成 `/api/v1/auth/wechat/login`、`/api/v1/auth/refresh`、`/api/v1/auth/logout` 和 `/api/v1/auth/me` 的 HTTP 接口；
 - 已完成短期 access token、长期 refresh token、会话表、refresh token 轮换和退出撤销；
 - 已完成已登录用户绑定邮箱的验证码发送、限流、消费和 `/api/v1/auth/email/bind`；
@@ -251,19 +257,24 @@ Authorization: Bearer <token>
 | --- | --- | --- |
 | `GET` | `/api/v1/me/profile` | 查看自己的资料 |
 | `PATCH` | `/api/v1/me/profile` | 修改自己的资料 |
+| `GET` | `/api/v1/departments` | 查看部门列表 |
+| `GET` | `/api/v1/positions` | 查看后台可维护的普通协会职务 |
 | `GET` | `/api/v1/members` | 查看成员列表或花名册 |
 | `GET` | `/api/v1/members/{member_id}` | 查看成员详情 |
 | `PATCH` | `/api/v1/members/{member_id}` | 修改成员资料 |
-| `GET` | `/api/v1/departments` | 查看部门列表 |
 | `PATCH` | `/api/v1/members/{member_id}/department` | 修改成员部门 |
 | `PATCH` | `/api/v1/members/{member_id}/positions` | 修改成员职务 |
 
 规则：
 
 - 成员资料属于组织域，不再写回身份域 `users` 表；
+- `0` 外部成员/协会会员是最低协会身份，不是后台权限点；微信首次登录创建的普通用户默认拥有 `0`；
 - 旧小程序里的 `phone_num` 在新成员资料表中对应 `phone`，小程序后续适配时由 API 客户端或接口适配层映射；
 - 当前用户自助资料接口只能修改自己的基本资料，不能调整部门、职务和权限；
-- 后台修改他人资料、部门和职务必须接入权限点后再开放；
+- 后台修改他人资料、部门和职务必须检查权限点并写入审计；
+- 成员列表以 `users` 为根，避免微信先登录但资料未完善的用户从后台消失；
+- 部门调整第一阶段采用“一个用户同一时间一个主部门”的口径，历史部门关系保留；
+- 职务接口只维护普通协会职务，不维护 `998/999` 系统底层身份；
 - 部门列表第一阶段要求登录访问，后续如果有公开展示需求再单独设计公开接口。
 
 当前实现状态：
@@ -272,7 +283,9 @@ Authorization: Bearer <token>
 - 已完成宣传部、基管部、项目部、运维部的初始部门种子；
 - 已完成 `/api/v1/departments`、`/api/v1/me/profile` 的读取接口；
 - 已完成 `/api/v1/me/profile` 的当前用户自助更新接口；
-- 成员列表、成员详情、后台成员资料维护、部门调整和职务调整仍待接入权限系统后实现。
+- 已完成 `/api/v1/positions`、`/api/v1/members`、`/api/v1/members/{member_id}`；
+- 已完成后台成员资料维护、部门调整和普通协会职务调整接口；
+- 后台成员写操作已接入 `organization.member.update`、`organization.member.department.assign`、`organization.member.positions.replace` 审计。
 
 ### 权限
 
@@ -281,22 +294,27 @@ Authorization: Bearer <token>
 | `GET` | `/api/v1/permissions/me` | 获取当前用户权限摘要 |
 | `GET` | `/api/v1/permissions` | 查看权限点 |
 | `GET` | `/api/v1/permissions/roles` | 查看角色 |
-| `POST` | `/api/v1/roles` | 创建角色 |
-| `PATCH` | `/api/v1/roles/{role_id}` | 修改角色 |
-| `POST` | `/api/v1/users/{user_id}/roles` | 给用户授予角色或权限作用域 |
-| `DELETE` | `/api/v1/users/{user_id}/roles/{user_role_id}` | 撤销用户角色 |
+| `GET` | `/api/v1/permissions/users/{user_id}/roles` | 查看用户角色授权记录 |
+| `POST` | `/api/v1/permissions/users/{user_id}/roles` | 给用户授予业务角色 |
+| `POST` | `/api/v1/permissions/role-grants/{user_role_grant_id}/revoke` | 撤销用户角色授权 |
+| `POST` | `/api/v1/roles` | 创建角色，规划中 |
+| `PATCH` | `/api/v1/roles/{role_id}` | 修改角色，规划中 |
 
 说明：
 
 - 普通业务权限由权限点和作用域控制；
 - `998/999` 只处理底层系统管理和异常兜底，不默认承担普通业务审批角色；
-- 唯一 `999` 初始化应优先通过脚本或受控初始化流程完成。
+- 唯一 `999` 初始化应优先通过脚本或受控初始化流程完成；
+- 普通权限写接口不能授予或撤销 `system_operator`、`system_super_admin`；
+- 第一阶段用户角色授权只开放 `global` 和 `department` 作用域，项目、资源、场地等作用域随业务域落地后再开放。
 
 当前实现状态：
 
 - 已完成权限数据库模型、迁移种子和默认角色；
 - 已完成 `/api/v1/permissions/me`、`/api/v1/permissions`、`/api/v1/permissions/roles`；
-- 权限写接口尚未开放，必须先接入权限变更审计。
+- 已完成用户角色授权记录查询、业务角色授予和撤销接口；
+- 权限写接口已接入 `permission.user_role_grant.create` 和 `permission.user_role_grant.revoke` 审计；
+- 自定义角色创建、角色权限编辑和跨业务对象作用域规则仍待实现。
 
 ### 审计
 
@@ -334,8 +352,21 @@ Authorization: Bearer <token>
 - 业务代码不能直接改用户积分余额；
 - 积分变更必须产生流水；
 - 冻结、解冻、扣除、反向修正都要写入流水；
+- 积分写接口必须提供 `Idempotency-Key` 或业务唯一键，防止重复发放或重复扣减；
+- 后台人工调整积分只服务 `998/999` 系统兜底和异常修复，必须填写原因并写入审计；
+- `points_manager` 可以查看成员积分账户和流水，但不能执行人工调整；
 - 临时积分规则撤回默认停止后续使用，不自动追回已发积分；
 - 异常追回必须通过反向流水修正。
+
+当前实现状态：
+
+- 已完成 `point_accounts`、`point_holds`、`point_ledger_entries` 模型和迁移；
+- 已完成旧用户 0 积分账户补齐和新用户账户懒创建；
+- 已完成积分服务层的人工调整、冻结、解冻、冻结转扣除和幂等保护；
+- 已开放当前用户积分账户和流水接口；
+- 已开放后台积分账户、流水查询和受控人工调整接口；
+- 已接入 `points.manual_adjustment.create` 审计；
+- 固定积分规则、临时积分规则申请/审批/撤回和反向流水业务接口仍待实现。
 
 ### 资源
 

@@ -6,7 +6,7 @@
 避免业务模块继续使用 `identity_code >= 1` 这类临时数字比较。
 """
 
-from app.core.permissions.models import Permission, Role, RolePermission, UserRole
+from app.core.permissions.models import Permission, Role, RolePermission, UserRoleGrant
 from app.core.permissions.registry import (
     PermissionPoint,
     PermissionRegistry,
@@ -32,7 +32,7 @@ __all__ = [
     "Role",
     "RolePermission",
     "UserPermissionSummary",
-    "UserRole",
+    "UserRoleGrant",
     "check_user_permission",
     "get_user_permission_summary",
     "permission_registry",

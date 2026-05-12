@@ -43,30 +43,32 @@ from app.interfaces.http.v1.auth.schemas import (
     WechatLoginRequest,
 )
 from app.modules.audit.service import AuditLogEntry, record_audit_log
-from app.modules.identity.service import (
-    AuthTokenPair,
+from app.modules.identity.accounts import (
     bind_email_with_code,
     complete_first_login_with_code,
-    issue_auth_token_pair,
-    issue_email_verification_code,
-    login_local_account_with_password,
+    login_email_password_account_with_password,
     login_wechat_identity,
+    set_email_password_account_password,
+)
+from app.modules.identity.email_codes import issue_email_verification_code
+from app.modules.identity.sessions import (
+    issue_auth_token_pair,
     refresh_auth_token_pair,
     revoke_auth_token_pair,
-    set_local_account_password,
 )
+from app.modules.identity.types import AuthTokenPair
 from app.shared.request_context import get_request_id
 from app.shared.responses import success_response
 
 router = APIRouter(prefix="/auth")
 
 
-def build_user_summary(user, *, local_account=None) -> UserSummary:
+def build_user_summary(user, *, email_password_account=None) -> UserSummary:
     """把用户 ORM 对象转换成接口层用户摘要。"""
 
-    account = local_account
-    if account is None and "local_account" not in inspect(user).unloaded:
-        account = user.local_account
+    account = email_password_account
+    if account is None and "email_password_account" not in inspect(user).unloaded:
+        account = user.email_password_account
 
     return UserSummary(
         id=user.id,
@@ -281,7 +283,7 @@ async def bind_email(
             action="identity.email.bind",
             target_type="user",
             target_id=str(current.user.id),
-            after_snapshot={"email": result.local_account.email},
+            after_snapshot={"email": result.email_password_account.email},
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent"),
             request_id=get_request_id(request),
@@ -291,10 +293,10 @@ async def bind_email(
     )
     await session.commit()
     data = BindEmailResponse(
-        email=result.local_account.email,
+        email=result.email_password_account.email,
         created=result.created,
-        password_required=result.local_account.password_hash is None,
-        user=build_user_summary(result.user, local_account=result.local_account),
+        password_required=result.email_password_account.password_hash is None,
+        user=build_user_summary(result.user, email_password_account=result.email_password_account),
     )
     return success_response(data.model_dump(), request_id=get_request_id(request))
 
@@ -308,7 +310,7 @@ async def email_first_login(
     """
     网页端首次邮箱验证码登录。
 
-    该流程只接受已经绑定邮箱但尚未设置密码的本地账号，成功后客户端必须进入设置密码页。
+    该流程只接受已经绑定邮箱但尚未设置密码的邮箱密码账号，成功后客户端必须进入设置密码页。
     """
 
     result = await complete_first_login_with_code(
@@ -331,7 +333,7 @@ async def email_first_login(
             action="identity.email.first_login",
             target_type="user",
             target_id=str(result.user.id),
-            after_snapshot={"email": result.local_account.email, "password_required": True},
+            after_snapshot={"email": result.email_password_account.email, "password_required": True},
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent"),
             request_id=get_request_id(request),
@@ -351,9 +353,9 @@ async def set_password(
     current: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """首次设置网页端本地账号密码。"""
+    """首次设置网页端邮箱密码。"""
 
-    result = await set_local_account_password(
+    result = await set_email_password_account_password(
         session,
         user_id=current.user.id,
         password=payload.password,
@@ -363,8 +365,8 @@ async def set_password(
         AuditLogEntry(
             actor_id=current.user.id,
             action="identity.password.set",
-            target_type="local_account",
-            target_id=str(result.local_account.id),
+            target_type="email_password_account",
+            target_id=str(result.email_password_account.id),
             before_snapshot={"password_set": False},
             after_snapshot={"password_set": True},
             ip_address=get_client_ip(request),
@@ -377,7 +379,7 @@ async def set_password(
     await session.commit()
     data = SetPasswordResponse(
         password_set=result.password_set,
-        user=build_user_summary(result.user, local_account=result.local_account),
+        user=build_user_summary(result.user, email_password_account=result.email_password_account),
     )
     return success_response(data.model_dump(), request_id=get_request_id(request))
 
@@ -390,7 +392,7 @@ async def password_login(
 ):
     """网页端邮箱密码登录。"""
 
-    result = await login_local_account_with_password(
+    result = await login_email_password_account_with_password(
         session,
         email=payload.email,
         password=payload.password,

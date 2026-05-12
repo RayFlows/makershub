@@ -37,13 +37,16 @@
 说明：
 
 - 用户主体不直接等于微信 `openid` 或邮箱。
-- 微信身份、本地账号密码都挂接到同一个用户主体。
-- 普通用户第一版由小程序微信登录创建或找到用户主体，再通过绑定邮箱补齐本地账号入口。
-- 第一个 `999` 是例外，可以由受控运维初始化命令先创建本地账号对应的用户主体。
+- 微信身份、邮箱密码账号都挂接到同一个用户主体。
+- 普通用户第一版由小程序微信登录创建或找到用户主体，再通过绑定邮箱补齐邮箱密码登录入口。
+- 第一个 `999` 是例外，可以由受控运维初始化命令先创建邮箱密码账号对应的用户主体。
 
-### `local_accounts`
+### `email_password_accounts`
 
-本地账号表，用于网页端、后台管理端和第一个 `999` 初始化。
+邮箱密码账号表，用于网页端、后台管理端和第一个 `999` 初始化。
+
+它不是“网页用户表”，也不是“后台用户表”。网页端和后台端都复用同一个
+`users` 用户主体；能不能进入后台由权限系统判断。
 
 核心字段：
 
@@ -58,10 +61,10 @@
 约束：
 
 - `email` 全局唯一。
-- 普通用户的 `local_accounts` 应由已绑定邮箱的用户主体生成，不作为网页端自助注册入口。
+- 普通用户的 `email_password_accounts` 应由已绑定邮箱的用户主体生成，不作为网页端自助注册入口。
 - 网页端首次邮箱验证码登录只消费已绑定到用户主体的邮箱，验证后强制设置密码。
 - `password_hash` 为空时不能进行邮箱密码登录，只能走首次登录设置密码流程。
-- 第一个 `999` 初始化可以直接创建本地账号，后续再绑定微信身份。
+- 第一个 `999` 初始化可以直接创建邮箱密码账号，后续再绑定微信身份。
 - 更换邮箱需要验证旧邮箱和新邮箱，密码保持不变。
 
 ### `wechat_accounts`
@@ -83,6 +86,21 @@
 - `openid` 全局唯一。
 - 第一版普通用户以微信身份作为进入系统的前置身份，不依赖 `unionid` 才能启动。
 - 第一版不允许用户自助解绑微信。
+
+### 微信身份与网页身份如何绑定
+
+绑定点不是一张单独的“微信网页关系表”，而是共同指向同一个 `users.id`：
+
+```text
+users.id = 4
+├── wechat_accounts.user_id = 4
+└── email_password_accounts.user_id = 4
+```
+
+也就是说，微信登录和邮箱密码登录只是同一个人的两种登录凭证。小程序首次登录时
+先创建 `users` 和 `wechat_accounts`；用户在小程序里绑定邮箱后，再为同一个
+`users.id` 创建 `email_password_accounts`。网页端首次登录只接受已经存在的
+`email_password_accounts.email`，不会创建一个新的孤立网页用户。
 
 ### `auth_sessions`
 
@@ -137,11 +155,11 @@
 
 当前实现状态：
 
-- 已创建 `users`、`local_accounts`、`wechat_accounts`、`auth_sessions`、`email_verification_codes`；
-- 已允许 `local_accounts.password_hash` 在首次设置密码前为空；
+- 已创建 `users`、`email_password_accounts`、`wechat_accounts`、`auth_sessions`、`email_verification_codes`；
+- 已允许 `email_password_accounts.password_hash` 在首次设置密码前为空；
 - 已创建密码哈希工具；
 - 已创建初始化唯一 `999` 的服务；
-- 已创建微信用户主体和待设置密码本地账号的服务层逻辑；
+- 已创建微信用户主体和待设置密码邮箱密码账号的服务层逻辑；
 - 已创建微信登录接口、访问令牌签发、refresh token 轮换、退出撤销和当前用户校验接口；
 - 已创建已登录用户绑定邮箱的验证码发送、限流、消费和绑定接口；
 - 已创建网页端首次邮箱验证码登录、首次设置密码和邮箱密码登录接口；
@@ -209,6 +227,7 @@
 
 初始职务：
 
+- 外部成员、协会会员 `0`；
 - 干事；
 - 部长；
 - 副会长；
@@ -216,6 +235,12 @@
 - 指导老师；
 - 管理员 `998`；
 - 超级管理员 `999`。
+
+说明：
+
+- `0` 是最低协会身份，不是后台权限点，也不会自动带来管理能力；
+- 微信首次登录创建的普通用户默认拥有 `0`，后续可由后台成员管理改为干事、部长等；
+- 后台鉴权仍以权限点和角色为准，不能用职务数字大小直接放行接口。
 
 ### `user_positions`
 
@@ -287,20 +312,37 @@
 - `system_super_admin`：对应唯一 `999` 母账号，包含系统兜底权限和指定/恢复 `998` 权限；
 - `system_operator`：对应 `998` 管理员，由唯一 `999` 指定，包含系统兜底权限；
 - `organization_manager`：维护成员资料、部门和职务；
-- `auditor`：查看审计日志。
+- `auditor`：查看审计日志；
+- `points_manager`：查看积分账户和积分流水，不包含人工调整积分能力。
 
 ### `role_permissions`
 
 角色权限关系表。
+
+这是一张链接表，连接 `roles.id` 和 `permissions.id`。它本身不重复保存角色名
+或权限名，所以直接看表时只会看到数字外键。人类可读含义需要通过 join 展开。
 
 核心字段：
 
 - `role_id`；
 - `permission_id`。
 
-### `user_roles`
+例子：
 
-用户角色关系表。
+| role_permissions.role_id | roles.code | role_permissions.permission_id | permissions.code |
+| ---: | --- | ---: | --- |
+| 3 | `organization_manager` | 3 | `organization.member.manage` |
+| 3 | `organization_manager` | 4 | `organization.department.manage` |
+| 3 | `organization_manager` | 5 | `organization.position.manage` |
+
+这表示 `organization_manager` 这个角色包含成员资料、部门归属和职务维护权限。
+当某个用户通过 `user_role_grants` 获得 `organization_manager` 时，权限服务会
+通过 `user_role_grants -> roles -> role_permissions -> permissions` 这条链路
+判断他是否拥有目标权限点。
+
+### `user_role_grants`
+
+用户角色授权记录表。
 
 核心字段：
 
@@ -315,9 +357,11 @@
 
 说明：
 
+- `revoked_at` 为空表示当前有效；非空表示这条授权已撤销，但历史记录保留用于审计。
 - 作用域可以是全局、部门、项目、场地等。
 - `998/999` 仍作为系统职务保存在 `user_positions` 中；
-- 权限服务会把它们映射到系统兜底权限，不自动映射到组织、积分、资源等普通业务权限；
+- 权限服务会把它们映射到系统兜底权限，不自动映射到组织、积分规则审批、资源等普通业务权限；
+- `998/999` 当前拥有 `points.manual.adjust`，只用于积分异常修复和受控人工调整；
 - `999` 额外拥有指定或恢复 `998` 的母账号动作权限。
 
 ## 文件
@@ -368,6 +412,7 @@
 
 - 每个用户一个积分账户。
 - 不允许透支。
+- `balance` 表示总余额，`frozen_balance` 表示冻结余额，可用余额由二者相减得到。
 
 ### `point_ledger_entries`
 
@@ -380,6 +425,7 @@
 - `user_id`；
 - `direction`：收入、支出、冻结、解冻、冻结转扣除、反向修正；
 - `amount`；
+- `balance_after`；
 - `available_balance_after`；
 - `frozen_balance_after`；
 - `business_type`；
@@ -392,6 +438,7 @@
 
 - `idempotency_key` 唯一，防止同一业务事件重复发放积分。
 - 流水不删除，撤回通过反向流水修正。
+- 流水是积分事实来源，余额缓存只允许 points 服务层维护。
 
 ### `point_holds`
 
@@ -401,13 +448,23 @@
 
 - `id`；
 - `account_id`；
+- `user_id`；
 - `amount`；
 - `business_type`；
 - `business_id`；
+- `idempotency_key`；
 - `status`：冻结中、已解冻、已扣除；
+- `reason`；
 - `created_by`；
 - `released_at`；
 - `deducted_at`。
+
+当前实现状态：
+
+- 已创建 `point_accounts`、`point_holds`、`point_ledger_entries`；
+- 已为旧用户补齐 0 积分账户，新用户首次读取或发生积分变动时懒创建账户；
+- 已完成人工调整、冻结、解冻、冻结转扣除的服务层写入；
+- 已完成后台查询和人工调整接口，固定规则和临时规则表仍待实现。
 
 ### `point_rules`
 
