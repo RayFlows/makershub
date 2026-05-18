@@ -37,7 +37,7 @@ COPY packages packages
 
 RUN pnpm --filter @makershub/admin build
 
-FROM nginx:1.29-alpine
+FROM nginx:1.31-alpine
 
 RUN apk upgrade --no-cache
 
