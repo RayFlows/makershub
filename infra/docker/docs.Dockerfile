@@ -35,7 +35,7 @@ COPY apps/docs apps/docs
 
 RUN pnpm --filter @makershub/docs build
 
-FROM nginx:1.29-alpine
+FROM nginx:1.31-alpine
 
 RUN apk upgrade --no-cache
 
