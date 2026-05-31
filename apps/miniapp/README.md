@@ -42,6 +42,9 @@ C:\Users\Ray\Documents\New project\makershub-miniapp
 
 其他业务页面仍主要指向旧的开发接口地址，后续需要按新后端 API 契约逐步改造请求封装和页面数据适配。
 
+后续迁移业务页面时，小程序应通过 `@makershub/api-client` 定义的统一响应、错误和业务类型接入新后端，并使用小程序专用的 `wx.request` 传输适配。
+迁移后的页面不能继续在页面内部手写 `wx.request`、解析旧式 `data.code === 200` 或维护 miniapp 专用业务语义。
+
 本地微信开发者工具调试时，需要关闭“校验合法域名”，并保证本地 API 容器已经读取 `.env` 中的 `WECHAT_APP_ID` 和 `WECHAT_APP_SECRET`：
 
 ```bash
