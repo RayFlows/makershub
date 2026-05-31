@@ -79,7 +79,7 @@ class MaterialBorrowRepository:
             )
             .where(*conditions)
             .execution_options(populate_existing=True)
-            .order_by(BorrowApplication.created_at.desc(), BorrowApplication.id.desc())
+            .order_by(BorrowApplication.submitted_at.desc(), BorrowApplication.id.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )

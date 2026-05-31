@@ -2,7 +2,7 @@
 """
 物资借用能力模块
 
-对外导出物资借用申请、审批、取消和归还服务。
+对外导出物资借用申请、修改、审批、取消和归还服务。
 """
 
 from app.modules.borrowing.materials.service import (
@@ -13,6 +13,7 @@ from app.modules.borrowing.materials.service import (
     list_material_borrow_applications,
     return_material_borrow_application,
     review_material_borrow_application,
+    update_material_borrow_application,
 )
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "list_material_borrow_applications",
     "return_material_borrow_application",
     "review_material_borrow_application",
+    "update_material_borrow_application",
 ]

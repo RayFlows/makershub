@@ -432,15 +432,17 @@ Authorization: Bearer <token>
 
 ### 借用
 
-| 方法 | 路径 | 用途 |
-| --- | --- | --- |
-| `POST` | `/api/v1/borrowing/applications` | 提交借用申请 |
-| `GET` | `/api/v1/borrowing/applications` | 查询借用申请 |
-| `GET` | `/api/v1/borrowing/applications/{application_id}` | 查看借用详情 |
-| `PATCH` | `/api/v1/borrowing/applications/{application_id}` | 修改待审核或已驳回的借用申请 |
-| `POST` | `/api/v1/borrowing/applications/{application_id}/cancel` | 取消借用申请 |
-| `POST` | `/api/v1/borrowing/applications/{application_id}/review` | 审核借用申请 |
-| `POST` | `/api/v1/borrowing/applications/{application_id}/return` | 归还处理；通过 `condition` 区分正常归还和异常归还 |
+当前借用申请创建、查询、详情、取消、审核、归还和修改申请后端 HTTP 均已落地。`PATCH /api/v1/borrowing/applications/{application_id}` 当前状态是“HTTP 已开放”，不是“端侧已接入”：成员网页端修改入口、我的借用记录、后台审核控制台真实接入、提交申请时库存不足直接返回结构化 409 的后端实现、提交/修改结构化错误的更多回归测试和字段可见性缺口仍待补。
+
+| 方法 | 路径 | 用途 | 当前状态 |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/borrowing/applications` | 提交借用申请 | HTTP 已开放 |
+| `GET` | `/api/v1/borrowing/applications` | 查询借用申请 | HTTP 已开放 |
+| `GET` | `/api/v1/borrowing/applications/{application_id}` | 查看借用详情 | HTTP 已开放 |
+| `PATCH` | `/api/v1/borrowing/applications/{application_id}` | 修改待审核或已驳回的借用申请 | HTTP 已开放；端侧未接入 |
+| `POST` | `/api/v1/borrowing/applications/{application_id}/cancel` | 取消借用申请 | HTTP 已开放 |
+| `POST` | `/api/v1/borrowing/applications/{application_id}/review` | 审核借用申请 | HTTP 已开放 |
+| `POST` | `/api/v1/borrowing/applications/{application_id}/return` | 归还处理；通过 `condition` 区分正常归还和异常归还 | HTTP 已开放 |
 
 规则：
 
@@ -448,13 +450,14 @@ Authorization: Bearer <token>
 - 当前最小主线只支持个人物资借用，`usage_type=project` 属于 1.5 阶段能力；
 - 第一阶段个人物资借用必须提交 `expected_return_at`；旧小程序申请页已强制选择归还日期，后端提交和修改接口都必须拒绝空值；
 - 提交和修改申请都必须即时校验当前物资台账：物资存在、状态可借、借用数量为正、当前可借数量足够、预计押金和申请人可用积分足够；当前可借数量不足时返回 `BORROW_MATERIAL_STOCK_NOT_ENOUGH`，不创建或更新申请；
+- 当前实现状态：修改接口已做库存不足结构化 409；提交接口的库存不足即时拒绝仍待补，不能用“审核时自动驳回”冒充提交契约完成；
 - 普通成员只能查看、修改或取消自己的申请；修改和取消范围限待审核和已驳回申请；
 - 成员端“我的借用记录”使用 `GET /api/v1/borrowing/applications?mine=true`，应展示本人全部状态：`pending_review`、`approved`、`rejected`、`cancelled`、`returned` 和 `exception_closed`；
 - 成员端只对 `pending_review` 和 `rejected` 展示修改和取消动作；`approved` 表示已审核通过、等待后台处理归还，不能在成员端展示归还入口；
 - 修改申请沿用旧小程序“修改原申请”的业务语义，不能要求用户取消后新建；修改 `rejected` 申请后状态回到 `pending_review`，原审核记录保留；
 - 修改接口允许更新借用理由、预计归还时间和物资明细；物资明细变化时服务层可以替换当前明细快照，但必须记录操作审计，并重新计算预计押金和校验当前可用积分；
 - 修改接口必须以后端判断为准，按当前物资台账重新校验物资存在、状态可借、数量合法、当前可借数量足够、预计押金和申请人可用积分；如果前端展示仍停留在旧数据，后端也必须拒绝不合法修改；
-- 修改接口使用完整提交语义，请求体必须包含 `reason`、`expected_return_at` 和整份 `items`；`items` 缺失、为空或只传增量都应被拒绝，避免“保持不变、清空、漏传”三种含义混淆；
+- 修改接口使用完整提交语义，请求体必须且只能包含 `reason`、`expected_return_at` 和整份 `items`；`items` 缺失、为空、只传增量或传入额外字段都应被统一请求校验拒绝，避免“保持不变、清空、漏传”三种含义混淆；
 - 修改接口不允许客户端提交或修改 `borrow_type`、`usage_type`、`project_id`、`applicant_id`、`status`、`deposit_points`、`point_hold_id` 等非可修改字段；
 - 修改已驳回申请后，响应中的 `reviews` 仍保留历史审核记录；端侧主状态必须按当前 `status=pending_review` 展示为待重新审核，旧驳回意见只能放在“历史审核意见”区域，不能继续当成本轮审核结论；
 - 修改申请成功后响应中的 `submitted_at` 必须刷新为本次重新提交时间；`created_at` 保留原始创建时间，后台审核队列应按 `submitted_at desc, id desc` 排序；
@@ -487,7 +490,7 @@ Authorization: Bearer <token>
 - 正常归还按基管部 `1` 及以上的日常处理理解；异常归还按基管部 `2` 及以上、会长或对应业务负责人处理，后续权限细分时应拆成独立高风险权限点；
 - 基管部常态角色 `resource_manager` 会包含该权限，但后台审核入口仍以 `borrowing.application.review` 为准；
 - 审核和归还接口第一阶段必须通过状态机和积分账本幂等键防重复副作用；重复点击导致状态已经不满足审核或归还条件时，可以返回 `409`，不要求返回第一次成功结果；
-- 提交申请时后端会按申请明细计算 `deposit_points`，并校验当前可借库存；若当前可用积分不足，返回 `BORROW_DEPOSIT_NOT_ENOUGH`，不创建申请；若当前可借库存不足，返回 `BORROW_MATERIAL_STOCK_NOT_ENOUGH`，不创建申请；
+- 目标口径是提交申请时后端按申请明细计算 `deposit_points`，并校验当前可借库存；若当前可用积分不足，返回 `BORROW_DEPOSIT_NOT_ENOUGH`，不创建申请；若当前可借库存不足，返回 `BORROW_MATERIAL_STOCK_NOT_ENOUGH`，不创建申请。当前提交接口的库存不足即时拒绝仍待补，下一步实现时必须以该契约为准；
 - 提交或修改时库存不足使用 HTTP `409`，错误响应中的 `error.details` 必须包含 `material_id`、`material_name`、`requested_quantity` 和 `available_quantity`，供成员网页端和后续小程序端展示明确提示；
 - 审核通过动作会再次校验申请人的可用积分和当前可借库存，若审核时余额或库存不足，申请落为 `rejected` 并写入系统审核意见，不扣库存、不冻结押金；库存不足的系统审核意见必须包含具体物资名称、当前可借数量和申请数量；
 - 审批通过扣减物资 `available_quantity` 并按物资押金冻结积分；
@@ -597,6 +600,8 @@ Authorization: Bearer <token>
 | `MATERIAL_NOT_FOUND` | 404 | resources | 物资不存在，或普通成员访问不可借物资 |
 | `BORROW_APPLICATION_NOT_FOUND` | 404 | borrowing | 借用申请不存在 |
 | `BORROW_APPLICATION_FORBIDDEN` | 403 | borrowing | 普通成员访问他人借用申请 |
+| `BORROW_APPLICATION_NOT_EDITABLE` | 409 | borrowing | 当前借用申请状态不允许修改 |
+| `BORROW_FIELD_REQUIRED` | 422 | borrowing | 借用、审核或归还请求缺少必填业务字段 |
 | `BORROW_PROFILE_INCOMPLETE` | 422 | borrowing | 申请人资料不足，不能生成借用快照 |
 | `BORROW_DEPOSIT_NOT_ENOUGH` | 409 | borrowing | 可用积分不足，不能覆盖预计押金 |
 | `BORROW_MATERIAL_STOCK_NOT_ENOUGH` | 409 | borrowing | 提交或修改时物资可借库存不足 |

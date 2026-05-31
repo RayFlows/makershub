@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -384,6 +385,113 @@ def test_material_borrow_create_writes_applicant_and_item_snapshots(
     assert "applicant_snapshot" not in list_item
     assert "applicant_current_contact" not in list_item
     assert "items" not in list_item
+
+
+def test_modify_pending_material_borrow_application_replaces_details(
+    borrowing_context: BorrowingTestContext,
+) -> None:
+    """申请人可以修改待审核物资借用申请，并按新明细刷新押金和提交时间。"""
+
+    manager_token, manager_id = login_and_get_identity(
+        borrowing_context.client,
+        openid="borrow_modify_pending_manager",
+        display_name="修改申请管理员",
+    )
+    borrower_token, borrower_id = login_and_get_identity(
+        borrowing_context.client,
+        openid="borrow_modify_pending_member",
+        display_name="修改申请成员",
+    )
+    grant_role_to_user(borrowing_context, user_id=manager_id, role_code="resource_manager")
+    seed_borrower_for_borrowing(borrowing_context, user_id=borrower_id, balance=50)
+    original_material_id = create_material_for_test(
+        borrowing_context,
+        manager_token=manager_token,
+        deposit_points=5,
+    )
+
+    category_response = borrowing_context.client.post(
+        "/api/v1/resources/material-categories",
+        headers={"Authorization": f"Bearer {manager_token}"},
+        json={"name": "传感器套件", "sort_order": 2},
+    )
+    assert category_response.status_code == 200
+    replacement_material_response = borrowing_context.client.post(
+        "/api/v1/resources/materials",
+        headers={"Authorization": f"Bearer {manager_token}"},
+        json={
+            "name": "温湿度传感器",
+            "category_id": category_response.json()["data"]["id"],
+            "description": "用于课程实验",
+            "location": "B 区",
+            "cabinet_no": "B1",
+            "shelf_no": "3",
+            "total_quantity": 5,
+            "deposit_points": 7,
+        },
+    )
+    assert replacement_material_response.status_code == 200
+    replacement_material_id = replacement_material_response.json()["data"]["id"]
+
+    create_response = borrowing_context.client.post(
+        "/api/v1/borrowing/applications",
+        headers={"Authorization": f"Bearer {borrower_token}"},
+        json={
+            "borrow_type": "material",
+            "usage_type": "personal",
+            "reason": "课程展示需要",
+            "expected_return_at": BORROW_EXPECTED_RETURN_AT,
+            "items": [{"material_id": original_material_id, "quantity": 1}],
+        },
+    )
+    assert create_response.status_code == 200
+    created_data = create_response.json()["data"]
+    assert created_data["status"] == "pending_review"
+    application_id = created_data["id"]
+    original_submitted_at = created_data["submitted_at"]
+    modified_expected_return_at = "2026-06-08T12:00:00+00:00"
+
+    modify_response = borrowing_context.client.patch(
+        f"/api/v1/borrowing/applications/{application_id}",
+        headers={"Authorization": f"Bearer {borrower_token}"},
+        json={
+            "reason": "改为社团培训实验使用",
+            "expected_return_at": modified_expected_return_at,
+            "items": [{"material_id": replacement_material_id, "quantity": 3}],
+        },
+    )
+    list_response = borrowing_context.client.get(
+        "/api/v1/borrowing/applications?mine=true",
+        headers={"Authorization": f"Bearer {borrower_token}"},
+    )
+
+    assert modify_response.status_code == 200
+    modified_data = modify_response.json()["data"]
+    assert modified_data["status"] == "pending_review"
+    assert modified_data["reason"] == "改为社团培训实验使用"
+    assert datetime.fromisoformat(modified_data["expected_return_at"].replace("Z", "+00:00")) == datetime.fromisoformat(
+        modified_expected_return_at,
+    )
+    assert modified_data["deposit_points"] == 21
+    assert datetime.fromisoformat(modified_data["submitted_at"].replace("Z", "+00:00")) >= datetime.fromisoformat(
+        original_submitted_at.replace("Z", "+00:00"),
+    )
+    assert modified_data["items"] == [
+        {
+            "id": modified_data["items"][0]["id"],
+            "resource_type": "material",
+            "material_id": replacement_material_id,
+            "material_name": "温湿度传感器",
+            "category_name": "传感器套件",
+            "quantity": 3,
+            "unit_deposit_points": 7,
+            "subtotal_deposit_points": 21,
+        },
+    ]
+
+    assert list_response.status_code == 200
+    list_items = list_response.json()["data"]["items"]
+    assert any(item["id"] == application_id and item["status"] == "pending_review" for item in list_items)
 
 
 def test_material_borrow_approval_freezes_deposit_and_return_releases_it(

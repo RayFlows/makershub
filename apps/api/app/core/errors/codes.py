@@ -38,6 +38,7 @@ class ErrorCode(StrEnum):
     BORROW_PROFILE_INCOMPLETE = "BORROW_PROFILE_INCOMPLETE"
     BORROW_DEPOSIT_NOT_ENOUGH = "BORROW_DEPOSIT_NOT_ENOUGH"
     BORROW_MATERIAL_STOCK_NOT_ENOUGH = "BORROW_MATERIAL_STOCK_NOT_ENOUGH"
+    BORROW_APPLICATION_NOT_EDITABLE = "BORROW_APPLICATION_NOT_EDITABLE"
 
 
 @dataclass(frozen=True)
@@ -97,6 +98,12 @@ ERROR_SPECS: dict[ErrorCode, ErrorSpec] = {
         code=ErrorCode.BORROW_MATERIAL_STOCK_NOT_ENOUGH,
         status_code=409,
         message="物资可借库存不足",
+        domain="borrowing",
+    ),
+    ErrorCode.BORROW_APPLICATION_NOT_EDITABLE: ErrorSpec(
+        code=ErrorCode.BORROW_APPLICATION_NOT_EDITABLE,
+        status_code=409,
+        message="申请当前不能修改",
         domain="borrowing",
     ),
 }

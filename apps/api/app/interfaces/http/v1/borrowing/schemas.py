@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BorrowApplicationItemRequest(BaseModel):
@@ -29,6 +29,16 @@ class BorrowApplicationCreateRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=2000, description="借用理由")
     expected_return_at: datetime | None = Field(default=None, description="预计归还时间，第一阶段个人物资借用必填")
     items: list[BorrowApplicationItemRequest] = Field(min_length=1, description="借用物资明细")
+
+
+class BorrowApplicationUpdateRequest(BaseModel):
+    """修改借用申请请求。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1, max_length=2000, description="借用理由")
+    expected_return_at: datetime = Field(description="预计归还时间")
+    items: list[BorrowApplicationItemRequest] = Field(min_length=1, description="整份借用物资明细")
 
 
 class BorrowApplicationCancelRequest(BaseModel):

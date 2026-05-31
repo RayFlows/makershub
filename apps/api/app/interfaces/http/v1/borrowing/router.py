@@ -27,6 +27,7 @@ from app.interfaces.http.v1.borrowing.schemas import (
     BorrowApplicationResponse,
     BorrowApplicationReturnRequest,
     BorrowApplicationReviewRequest,
+    BorrowApplicationUpdateRequest,
     BorrowItemResponse,
     BorrowReturnResponse,
     BorrowReviewResponse,
@@ -41,10 +42,12 @@ from app.modules.borrowing.materials import (
     list_material_borrow_applications,
     return_material_borrow_application,
     review_material_borrow_application,
+    update_material_borrow_application,
 )
 from app.modules.borrowing.models import BorrowApplication, BorrowItem, BorrowReturn, BorrowReview
 from app.shared.request_context import get_request_id
 from app.shared.responses import success_response
+from app.shared.time import ensure_optional_utc_datetime, ensure_utc_datetime
 
 router = APIRouter()
 
@@ -110,13 +113,13 @@ def build_borrow_application_list_item_response(application: BorrowApplication) 
         borrow_type=application.borrow_type,
         usage_type=application.usage_type,
         project_id=application.project_id,
-        expected_return_at=application.expected_return_at,
+        expected_return_at=ensure_utc_datetime(application.expected_return_at),
         status=application.status,
         deposit_points=application.deposit_points,
-        submitted_at=application.submitted_at,
+        submitted_at=ensure_utc_datetime(application.submitted_at),
         material_summary=build_material_summary(application),
-        created_at=application.created_at,
-        updated_at=application.updated_at,
+        created_at=ensure_utc_datetime(application.created_at),
+        updated_at=ensure_utc_datetime(application.updated_at),
     )
 
 
@@ -128,7 +131,7 @@ def build_borrow_review_response(review: BorrowReview) -> BorrowReviewResponse:
         reviewer_id=review.reviewer_id,
         decision=review.decision,
         comment=review.comment,
-        reviewed_at=review.reviewed_at,
+        reviewed_at=ensure_utc_datetime(review.reviewed_at),
     )
 
 
@@ -138,7 +141,7 @@ def build_borrow_return_response(borrow_return: BorrowReturn) -> BorrowReturnRes
     return BorrowReturnResponse(
         id=borrow_return.id,
         operator_id=borrow_return.operator_id,
-        returned_at=borrow_return.returned_at,
+        returned_at=ensure_utc_datetime(borrow_return.returned_at),
         condition=borrow_return.condition,
         comment=borrow_return.comment,
         point_action=borrow_return.point_action,
@@ -165,18 +168,18 @@ def build_borrow_application_response(
         usage_type=application.usage_type,
         project_id=application.project_id,
         reason=application.reason,
-        expected_return_at=application.expected_return_at,
+        expected_return_at=ensure_utc_datetime(application.expected_return_at),
         status=application.status,
         deposit_points=application.deposit_points,
         point_hold_id=application.point_hold_id,
-        submitted_at=application.submitted_at,
-        cancelled_at=application.cancelled_at,
+        submitted_at=ensure_utc_datetime(application.submitted_at),
+        cancelled_at=ensure_optional_utc_datetime(application.cancelled_at),
         cancel_reason=application.cancel_reason,
         items=[build_borrow_item_response(item) for item in application.items],
         reviews=[build_borrow_review_response(item) for item in application.reviews],
         returns=[build_borrow_return_response(item) for item in application.returns],
-        created_at=application.created_at,
-        updated_at=application.updated_at,
+        created_at=ensure_utc_datetime(application.created_at),
+        updated_at=ensure_utc_datetime(application.updated_at),
     )
 
 
@@ -214,6 +217,52 @@ async def create_borrow_application(
             action="borrowing.application.create",
             target_type="borrow_application",
             target_id=str(application.id),
+            after_snapshot=build_borrow_application_snapshot(application),
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("user-agent"),
+            request_id=get_request_id(request),
+            reason=payload.reason,
+            risk_level="medium",
+        ),
+    )
+    await session.commit()
+    data = build_borrow_application_response(application)
+    return success_response(data.model_dump(mode="json"), request_id=get_request_id(request))
+
+
+@router.patch("/borrowing/applications/{application_id}")
+async def update_borrow_application(
+    application_id: int,
+    payload: BorrowApplicationUpdateRequest,
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """修改自己的待审核或已驳回借用申请。"""
+
+    before = await get_material_borrow_application(
+        session,
+        application_id=application_id,
+        viewer_id=current_user.user.id,
+        can_view_all=False,
+    )
+    before_snapshot = build_borrow_application_snapshot(before)
+    application = await update_material_borrow_application(
+        session,
+        application_id=application_id,
+        applicant_id=current_user.user.id,
+        reason=payload.reason,
+        expected_return_at=payload.expected_return_at,
+        items=[item.model_dump() for item in payload.items],
+    )
+    await record_audit_log(
+        session,
+        AuditLogEntry(
+            actor_id=current_user.user.id,
+            action="borrowing.application.update",
+            target_type="borrow_application",
+            target_id=str(application.id),
+            before_snapshot=before_snapshot,
             after_snapshot=build_borrow_application_snapshot(application),
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent"),

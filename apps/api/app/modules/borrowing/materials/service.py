@@ -195,6 +195,70 @@ async def create_material_borrow_application(
     return await repository.add_application(application)
 
 
+async def update_material_borrow_application(
+    session: AsyncSession,
+    *,
+    application_id: int,
+    applicant_id: int,
+    items: list[dict[str, int]],
+    reason: str,
+    expected_return_at: datetime | None,
+) -> BorrowApplication:
+    """
+    修改自己的物资借用申请。
+
+    修改申请不是局部补丁：成员必须提交新的借用理由、预计归还时间和整份物资明细。
+    后端重新按当前物资台账生成明细快照并校验押金，已驳回申请修改后回到待审核，
+    原审核记录保留给后台和成员端追溯。
+    """
+
+    applicant = await _get_user_or_404(session, user_id=applicant_id)
+    repository = MaterialBorrowRepository(session)
+    application = await _get_application_or_404(repository, application_id=application_id, for_update=True)
+    if application.borrow_type != BORROW_TYPE_MATERIAL:
+        raise AppError("BORROW_TYPE_UNSUPPORTED", "当前只支持物资借用修改", status_code=422)
+    if application.applicant_id != applicant_id:
+        raise AppError("BORROW_APPLICATION_FORBIDDEN", "只能修改自己的借用申请", status_code=403)
+    if application.status not in {BORROW_STATUS_PENDING_REVIEW, BORROW_STATUS_REJECTED}:
+        raise AppError("BORROW_APPLICATION_NOT_EDITABLE", "申请当前不能修改", status_code=409)
+
+    normalized_reason = normalize_required_text(reason, field_label="借用理由", max_length=2000)
+    if expected_return_at is None:
+        raise AppError("BORROW_FIELD_REQUIRED", "预计归还时间不能为空", status_code=422)
+    applicant_snapshot = await _build_applicant_snapshot(session, applicant)
+    normalized_items = await _normalize_material_borrow_items(session, items=items)
+    await _ensure_material_stock_available(session, items=normalized_items)
+    deposit_points = sum(item["deposit_points"] for item in normalized_items)
+    await _ensure_deposit_available(session, user_id=applicant.id, deposit_points=deposit_points)
+
+    application.applicant_name_snapshot = applicant_snapshot["name"]
+    application.applicant_student_id_snapshot = applicant_snapshot["student_id"]
+    application.applicant_phone_snapshot = applicant_snapshot["phone"]
+    application.applicant_email_snapshot = applicant_snapshot["email"]
+    application.applicant_grade_snapshot = applicant_snapshot["grade"]
+    application.applicant_major_snapshot = applicant_snapshot["major"]
+    application.reason = normalized_reason
+    application.expected_return_at = expected_return_at
+    application.status = BORROW_STATUS_PENDING_REVIEW
+    application.deposit_points = deposit_points
+    application.submitted_at = utc_now()
+    application.cancelled_at = None
+    application.cancel_reason = None
+    application.items = [
+        BorrowItem(
+            resource_type=RESOURCE_TYPE_MATERIAL,
+            material_id=item["material_id"],
+            material_name_snapshot=item["material_name"],
+            category_name_snapshot=item["category_name"],
+            unit_deposit_points_snapshot=item["unit_deposit_points"],
+            quantity=item["quantity"],
+        )
+        for item in normalized_items
+    ]
+    await session.flush()
+    return await _refresh_application(repository, application.id)
+
+
 async def get_applicant_current_contact(
     session: AsyncSession,
     *,
@@ -499,6 +563,31 @@ async def _normalize_material_borrow_items(
             },
         )
     return normalized_items
+
+
+async def _ensure_material_stock_available(
+    session: AsyncSession,
+    *,
+    items: list[NormalizedMaterialBorrowItem],
+) -> None:
+    """确认修改申请时当前可借库存足以覆盖整份新明细。"""
+
+    material_repository = MaterialRepository(session)
+    for item in items:
+        material = await material_repository.get_material_by_id(item["material_id"])
+        _ensure_material_borrowable(material)
+        if material is not None and material.available_quantity < item["quantity"]:
+            raise AppError(
+                "BORROW_MATERIAL_STOCK_NOT_ENOUGH",
+                "物资可借库存不足，无法提交借用申请修改。",
+                status_code=409,
+                details={
+                    "material_id": item["material_id"],
+                    "material_name": item["material_name"],
+                    "requested_quantity": item["quantity"],
+                    "available_quantity": material.available_quantity,
+                },
+            )
 
 
 async def _deduct_material_inventory_for_application(
