@@ -175,6 +175,16 @@ DEFAULT_ROLE_DEFINITIONS: tuple[RoleDefinition, ...] = (
         description="发布指定任务和悬赏任务，审核自己发布任务的完成结果。",
         permission_codes=("system.admin.access", "points.rule.view", "workbench.task.publish"),
     ),
+    RoleDefinition(
+        code="resource_manager",
+        name="资源与借用管理员",
+        description="基管部常态职责打包角色：维护物资台账，审核物资借用申请，并确认归还。",
+        permission_codes=(
+            "system.admin.access",
+            "resources.material.manage",
+            "borrowing.application.review",
+        ),
+    ),
 )
 
 

@@ -27,7 +27,7 @@ def normalize_member_profile_update(payload: dict[str, str | None]) -> dict[str,
         "real_name": lambda value: normalize_optional_text(value, max_length=100, field_label="真实姓名"),
         "student_id": lambda value: normalize_digits(value, max_length=32, field_label="学号"),
         "phone": normalize_phone,
-        "email": lambda value: normalize_optional_text(value, max_length=255, field_label="联系邮箱"),
+        "email": normalize_contact_email,
         "college": lambda value: normalize_optional_text(value, max_length=100, field_label="学院"),
         "major": lambda value: normalize_optional_text(value, max_length=100, field_label="专业"),
         "grade": lambda value: normalize_digits(value, max_length=20, field_label="年级"),
@@ -103,6 +103,18 @@ def normalize_phone(value: str | None) -> str | None:
         return None
     if not re.fullmatch(r"1[3-9]\d{9}", normalized):
         raise AppError("MEMBER_PROFILE_PHONE_INVALID", "手机号格式不正确", status_code=422)
+    return normalized
+
+
+def normalize_contact_email(value: str | None) -> str | None:
+    """清理联系邮箱字段。"""
+
+    normalized = normalize_optional_text(value, max_length=255, field_label="联系邮箱")
+    if normalized is None:
+        return None
+    normalized = normalized.lower()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", normalized):
+        raise AppError("MEMBER_PROFILE_EMAIL_INVALID", "联系邮箱格式不正确", status_code=422)
     return normalized
 
 

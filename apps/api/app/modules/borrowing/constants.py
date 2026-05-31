@@ -1,0 +1,44 @@
+# app/modules/borrowing/constants.py
+"""
+借用域常量
+
+借用域负责申请、审批、归还和异常闭环。资源库存来自 resources 域，押金冻结来自
+points 域，本文件只集中保存借用状态机需要稳定使用的字符串常量。
+"""
+
+# --- 借用类型与用途 ---
+BORROW_TYPE_MATERIAL = "material"
+BORROW_USAGE_PERSONAL = "personal"
+BORROW_USAGE_PROJECT = "project"
+
+# --- 申请状态 ---
+BORROW_STATUS_PENDING_REVIEW = "pending_review"
+BORROW_STATUS_REJECTED = "rejected"
+BORROW_STATUS_APPROVED = "approved"
+BORROW_STATUS_CANCELLED = "cancelled"
+BORROW_STATUS_RETURNED = "returned"
+BORROW_STATUS_EXCEPTION_CLOSED = "exception_closed"
+
+BORROW_APPLICATION_FINAL_STATUSES = {
+    BORROW_STATUS_CANCELLED,
+    BORROW_STATUS_RETURNED,
+    BORROW_STATUS_EXCEPTION_CLOSED,
+}
+
+# --- 审核与归还 ---
+BORROW_REVIEW_APPROVE = "approve"
+BORROW_REVIEW_REJECT = "reject"
+
+BORROW_RETURN_CONDITION_NORMAL = "normal"
+BORROW_RETURN_CONDITION_DAMAGED = "damaged"
+BORROW_RETURN_CONDITION_LOST = "lost"
+BORROW_RETURN_CONDITION_CONSUMED = "consumed"
+
+BORROW_RETURN_EXCEPTION_CONDITIONS = {
+    BORROW_RETURN_CONDITION_DAMAGED,
+    BORROW_RETURN_CONDITION_LOST,
+    BORROW_RETURN_CONDITION_CONSUMED,
+}
+
+# --- 跨域业务标识 ---
+BORROW_POINT_BUSINESS_TYPE = "material_borrow"

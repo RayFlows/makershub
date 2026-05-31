@@ -5,7 +5,7 @@ V1 API 路由目录，承载第一阶段正式 HTTP 契约，统一挂载到 `/a
 本目录负责：
 
 - 汇总各业务域 V1 路由；
-- 维护 auth、system、permissions、audit、organization 等接口分组；
+- 维护 auth、system、permissions、audit、organization、resources、borrowing 等接口分组；
 - 保持第一阶段接口契约稳定。
 
 本目录不负责：
@@ -27,5 +27,7 @@ V1 API 路由目录，承载第一阶段正式 HTTP 契约，统一挂载到 `/a
 - `organization`：部门、成员资料、成员后台维护；
 - `files`：上传意图和上传完成复核；
 - `points`：积分账户、积分流水和受控人工调整。
+- `resources`：物资分类、物资台账和库存调整；
+- `borrowing`：物资借用申请、审批、取消和归还。
 
 请求进入某个业务路由后，应该继续进入 `modules/<domain>/service.py`。如果发现路由文件里开始堆大量业务判断，说明边界已经跑偏，需要下沉到 service。

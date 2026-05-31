@@ -218,6 +218,7 @@ def test_update_my_profile_persists_fields(organization_client: TestClient) -> N
             "college": "计算机学院",
             "major": "计算机科学与技术",
             "grade": "2026",
+            "email": "Contact@Example.COM",
             "qq": "12345678",
             "bio": "喜欢开源硬件",
         },
@@ -227,6 +228,7 @@ def test_update_my_profile_persists_fields(organization_client: TestClient) -> N
     profile = update_response.json()["data"]["profile"]
     assert profile["real_name"] == "测试同学"
     assert profile["phone"] == "13800138000"
+    assert profile["email"] == "contact@example.com"
     assert profile["qq"] == "12345678"
 
     get_response = organization_client.get(
@@ -252,10 +254,23 @@ def test_update_my_profile_rejects_invalid_phone(organization_client: TestClient
     assert response.json()["error"]["code"] == "MEMBER_PROFILE_PHONE_INVALID"
 
 
+def test_update_my_profile_rejects_invalid_contact_email(organization_client: TestClient) -> None:
+    token = login_and_get_token(organization_client, openid="dev_openid_org_4")
+
+    response = organization_client.patch(
+        "/api/v1/me/profile",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"email": "not-an-email"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "MEMBER_PROFILE_EMAIL_INVALID"
+
+
 def test_member_admin_requires_permission(organization_client: TestClient) -> None:
     """普通登录用户不能进入后台成员管理接口。"""
 
-    token = login_and_get_token(organization_client, openid="dev_openid_org_4")
+    token = login_and_get_token(organization_client, openid="dev_openid_org_5")
 
     response = organization_client.get(
         "/api/v1/members",

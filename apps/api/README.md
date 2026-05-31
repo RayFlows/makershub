@@ -9,6 +9,7 @@
 - `app/core/config`：环境变量和运行配置；
 - `app/core/database`：SQLAlchemy 异步引擎、会话和数据库健康检查；
 - `app/core/errors`：应用异常和统一错误响应；
+- `app/modules`：身份、组织、积分、工作台、资源、借用等业务域；
 - `app/shared`：统一响应、分页结构和请求上下文；
 - `app/interfaces/http/v1`：HTTP V1 路由注册入口；
 - `migrations`：Alembic 迁移脚本目录。

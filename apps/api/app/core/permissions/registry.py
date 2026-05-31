@@ -209,6 +209,20 @@ def register_core_permissions() -> None:
             description="发布指定任务或悬赏任务，任务积分必须引用已有积分规则。",
             risk_level=PermissionRiskLevel.MEDIUM,
         ),
+        PermissionPoint(
+            code="resources.material.manage",
+            name="维护物资台账",
+            module="resources",
+            description="维护物资分类、物资资料和库存快照。",
+            risk_level=PermissionRiskLevel.HIGH,
+        ),
+        PermissionPoint(
+            code="borrowing.application.review",
+            name="审核借用申请",
+            module="borrowing",
+            description="审核物资借用申请并确认归还；第一阶段正常归还和异常归还暂共用该权限点。",
+            risk_level=PermissionRiskLevel.HIGH,
+        ),
     ]:
         if permission_registry.get(point.code) is None:
             permission_registry.register(point)

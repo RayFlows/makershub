@@ -19,9 +19,13 @@ from app.core.config.settings import get_settings
 from app.core.database.base import Base
 from app.core.permissions import models as permission_models  # noqa: F401
 from app.modules.audit import models as audit_models  # noqa: F401
+from app.modules.borrowing import models as borrowing_models  # noqa: F401
 from app.modules.files import models as file_models  # noqa: F401
 from app.modules.identity import models as identity_models  # noqa: F401
 from app.modules.organization import models as organization_models  # noqa: F401
+from app.modules.points import models as point_models  # noqa: F401
+from app.modules.resources import models as resource_models  # noqa: F401
+from app.modules.workbench import models as workbench_models  # noqa: F401
 
 # --- Alembic 基础配置 ---
 config = context.config
