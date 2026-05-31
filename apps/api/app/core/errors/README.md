@@ -5,6 +5,7 @@
 本目录负责：
 
 - 定义 `AppError`；
+- 维护核心稳定错误码注册表；
 - 注册 FastAPI 全局异常处理器；
 - 保证错误响应携带稳定错误码和 `request_id`；
 - 对 500 级错误写入运行日志。
@@ -15,4 +16,6 @@
 - 替代审计日志；
 - 向客户端暴露内部堆栈、SQL 或密钥信息。
 
-业务层应抛出 `AppError`，不要在服务层拼接 `HTTPException`。未知异常只返回泛化信息，详细堆栈留在 `error.log`。
+业务层应抛出 `AppError`，不要在服务层拼接 `HTTPException`。核心错误码应逐步登记到
+`codes.py`，端侧只识别 `error.code` 和 `error.details`，不能解析中文 `message`。
+未知异常只返回泛化信息，详细堆栈留在 `error.log`。

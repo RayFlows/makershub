@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.core.errors.codes import ErrorCode, get_error_spec, normalize_error_code
+
 
 class AppError(Exception):
     """可被客户端识别的业务异常。
@@ -20,14 +22,15 @@ class AppError(Exception):
 
     def __init__(
         self,
-        code: str,
-        message: str,
+        code: ErrorCode | str,
+        message: str | None = None,
         *,
-        status_code: int = 400,
+        status_code: int | None = None,
         details: dict[str, Any] | None = None,
     ) -> None:
-        self.code = code
-        self.message = message
-        self.status_code = status_code
+        spec = get_error_spec(code)
+        self.code = normalize_error_code(code)
+        self.message = message or (spec.message if spec is not None else "业务处理失败")
+        self.status_code = status_code or (spec.status_code if spec is not None else 400)
         self.details = details or {}
-        super().__init__(message)
+        super().__init__(self.message)

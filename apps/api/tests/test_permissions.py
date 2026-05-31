@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.database import get_session
 from app.core.database.base import Base
+from app.core.errors import AppError, ErrorCode
 from app.core.permissions import (
     PermissionPoint,
     PermissionRegistry,
@@ -32,6 +33,7 @@ from app.core.permissions.service import (
     get_user_permission_summary,
     sync_registered_permissions,
 )
+from app.core.permissions.view import resolve_permission_view
 from app.main import create_app
 from app.modules.audit.models import AuditLog
 from app.modules.identity.models import AuthSession, EmailPasswordAccount, EmailVerificationCode, User, WechatAccount
@@ -74,6 +76,17 @@ def test_permission_registry_rejects_duplicate_code() -> None:
     registry.register(point)
     with pytest.raises(ValueError, match="权限点重复注册"):
         registry.register(point)
+
+
+def test_app_error_accepts_registered_error_code() -> None:
+    """AppError 可以直接使用已登记错误码生成默认状态和文案。"""
+
+    error = AppError(ErrorCode.BORROW_APPLICATION_NOT_FOUND)
+
+    assert error.code == "BORROW_APPLICATION_NOT_FOUND"
+    assert error.message == "借用申请不存在"
+    assert error.status_code == 404
+    assert error.details == {}
 
 
 @pytest.mark.asyncio
@@ -161,6 +174,59 @@ async def test_role_grant_controls_permission_codes() -> None:
     assert "system.audit.view" not in summary.permissions
     assert allowed.allowed is True
     assert denied.allowed is False
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_permission_view_resolves_owner_or_all_scope() -> None:
+    """权限视角工具应按权限点和 mine 参数解析本人或全量范围。"""
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as session:
+        await sync_registered_permissions(session)
+        manager = User(display_name="资源管理员", status="active")
+        member = User(display_name="普通成员", status="active")
+        session.add_all([manager, member])
+        await session.flush()
+
+        repository = PermissionRepository(session)
+        role = await repository.get_role_by_code("resource_manager")
+        assert role is not None
+        await repository.grant_role_to_user(user_id=manager.id, role=role)
+        await session.commit()
+        manager_id = manager.id
+        member_id = member.id
+
+    async with session_factory() as session:
+        manager_all_view = await resolve_permission_view(
+            session,
+            user_id=manager_id,
+            view_all_permission="borrowing.application.review",
+        )
+        manager_mine_view = await resolve_permission_view(
+            session,
+            user_id=manager_id,
+            view_all_permission="borrowing.application.review",
+            mine=True,
+        )
+        member_view = await resolve_permission_view(
+            session,
+            user_id=member_id,
+            view_all_permission="borrowing.application.review",
+        )
+
+    assert manager_all_view.can_view_all is True
+    assert manager_all_view.owner_id is None
+    assert manager_mine_view.can_view_all is False
+    assert manager_mine_view.owner_id == manager_id
+    assert member_view.can_view_all is False
+    assert member_view.owner_id == member_id
 
     await engine.dispose()
 

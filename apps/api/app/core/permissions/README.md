@@ -12,6 +12,7 @@
 - `permissions`、`roles`、`role_permissions`、`user_role_grants` ORM 模型；
 - `sync_registered_permissions(...)`：权限点和系统角色幂等同步；
 - `check_user_permission(...)`：统一权限判断；
+- `resolve_permission_view(...)`：同一接口按权限解析本人视角或全量视角；
 - `require_permission(...)`：FastAPI 权限依赖；
 - `permission.denied`：权限依赖拒绝访问时自动写入审计日志；
 - `grant_user_role(...)` / `revoke_user_role_grant(...)`：可审计的业务角色授权与撤销服务；
@@ -61,3 +62,4 @@
 - `998` 必须由唯一 `999` 指定；普通业务授权仍应优先授予具体业务角色。
 - 普通权限写接口不能授予或撤销 `system_operator`、`system_super_admin`，它们对应的底层身份需要专门流程。
 - 权限拒绝审计不记录请求体和 query string，只记录用户、权限点、路径、作用域和 request_id。
+- 权限基础设施只解析“能否看全量”和“是否切回本人视角”，具体业务过滤条件仍应留在业务服务层。

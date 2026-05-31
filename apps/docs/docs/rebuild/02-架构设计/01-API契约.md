@@ -59,6 +59,10 @@
 失败响应结构只有这一种。不同业务错误只能改变 HTTP 状态码、`error.code`、`error.message`
 和 `error.details`，不能新增另一套顶层 `code`、`msg`、`data` 或旧小程序式错误 envelope。
 
+后端核心错误码逐步登记在 `apps/api/app/core/errors/codes.py`。新增需要端侧识别的错误码时，
+必须同步登记错误码元数据和本文档；端侧只识别 `error.code` 和 `error.details`，不能解析
+中文 `error.message`。
+
 ### 分页响应
 
 分页请求参数：
@@ -583,6 +587,19 @@ Authorization: Bearer <token>
 - `BORROW_MATERIAL_STOCK_NOT_ENOUGH`；
 - `PROJECT_STATUS_INVALID`；
 - `RESOURCE_STOCK_NOT_ENOUGH`。
+
+当前核心错误码登记表先覆盖端到端主线会被端侧识别的错误：
+
+| 错误码 | HTTP | 领域 | 用途 |
+| --- | --- | --- | --- |
+| `VALIDATION_ERROR` | 422 | shared | 请求参数不合法 |
+| `PERMISSION_DENIED` | 403 | permissions | 当前用户无权执行操作 |
+| `MATERIAL_NOT_FOUND` | 404 | resources | 物资不存在，或普通成员访问不可借物资 |
+| `BORROW_APPLICATION_NOT_FOUND` | 404 | borrowing | 借用申请不存在 |
+| `BORROW_APPLICATION_FORBIDDEN` | 403 | borrowing | 普通成员访问他人借用申请 |
+| `BORROW_PROFILE_INCOMPLETE` | 422 | borrowing | 申请人资料不足，不能生成借用快照 |
+| `BORROW_DEPOSIT_NOT_ENOUGH` | 409 | borrowing | 可用积分不足，不能覆盖预计押金 |
+| `BORROW_MATERIAL_STOCK_NOT_ENOUGH` | 409 | borrowing | 提交或修改时物资可借库存不足 |
 
 ## Docker 和本地联调
 
