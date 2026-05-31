@@ -38,6 +38,7 @@ import {
   claimWorkbenchTask,
   createWorkbenchTask,
   firstLogin,
+  getWorkbenchTaskStatusMeta,
   getMyPermissions,
   getMyPointAccount,
   getMyPointLedger,
@@ -53,6 +54,7 @@ import {
   setPassword,
   submitWorkbenchTask,
   updateMyMemberProfile,
+  visibilityLabels,
   type AuthTokenData,
   type CreateWorkbenchTaskPayload,
   type CurrentUserPermissions,
@@ -716,22 +718,6 @@ function MemberShell({
   );
 }
 
-const taskStatusMeta: Record<string, { label: string; color: string }> = {
-  pending_claim: { label: "待领取", color: "cyan" },
-  pending_completion: { label: "待完成", color: "gold" },
-  pending_review: { label: "待审核", color: "orange" },
-  completed: { label: "已完成", color: "green" },
-  rejected: { label: "已打回", color: "red" },
-  cancelled: { label: "已取消", color: "default" },
-  rule_revoked_pending: { label: "规则待处理", color: "volcano" },
-};
-
-const visibilityLabel: Record<string, string> = {
-  association: "协会内",
-  department: "部门内",
-  public: "公开",
-};
-
 function DashboardPanel({
   user,
   channel,
@@ -930,7 +916,7 @@ function WorkbenchTaskPanel({
   }
 
   function renderTask(task: WorkbenchTask) {
-    const status = taskStatusMeta[task.status] || { label: task.status, color: "default" };
+    const status = getWorkbenchTaskStatusMeta(task.status);
     const canClaim = task.status === "pending_claim" && task.assignment_type === "bounty";
     const canSubmit =
       task.assignee_id === user.id && (task.status === "pending_completion" || task.status === "rejected");
@@ -942,7 +928,7 @@ function WorkbenchTaskPanel({
           <div className="task-row-main">
             <Space size={8} wrap>
               <Tag color={status.color}>{status.label}</Tag>
-              <Tag>{visibilityLabel[task.visibility] || task.visibility}</Tag>
+              <Tag>{visibilityLabels[task.visibility] || task.visibility}</Tag>
               <Tag>{task.assignment_type === "bounty" ? "悬赏" : "指定"}</Tag>
               <Tag color="cyan">+{task.point_rule_amount}</Tag>
             </Space>

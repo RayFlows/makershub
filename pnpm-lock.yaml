@@ -53,6 +53,9 @@ importers:
       '@ant-design/icons':
         specifier: ^5.3.0
         version: 5.6.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@makershub/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       antd:
         specifier: ^5.17.0
         version: 5.29.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -82,7 +85,11 @@ importers:
         specifier: ^5.2.0
         version: 5.4.21
 
-  packages/api-client: {}
+  packages/api-client:
+    devDependencies:
+      typescript:
+        specifier: ^5.4.5
+        version: 5.9.3
 
   packages/config: {}
 
