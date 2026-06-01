@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.core.config.settings import get_settings
 from app.core.database import get_session
 from app.core.database.base import Base
 from app.main import create_app
@@ -29,8 +30,12 @@ from app.modules.organization.models import Position, UserPosition
 
 
 @pytest.fixture
-def auth_client(tmp_path: Path) -> Iterator[TestClient]:
+def auth_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     """创建使用临时 SQLite 数据库的认证接口测试客户端。"""
+
+    # 认证接口测试需要稳定暴露 dev_code；本地 .env 即使切到真实 SMTP，也不能影响测试结果。
+    monkeypatch.setenv("EMAIL_DELIVERY_MODE", "log")
+    get_settings.cache_clear()
 
     # 显式引用模型，确保 Base.metadata 在 create_all 前已经收集身份和组织表。
     _ = (AuthSession, EmailVerificationCode, EmailPasswordAccount, User, WechatAccount, Position, UserPosition)
@@ -58,6 +63,7 @@ def auth_client(tmp_path: Path) -> Iterator[TestClient]:
 
     app.dependency_overrides.clear()
     asyncio.run(engine.dispose())
+    get_settings.cache_clear()
 
 
 def test_wechat_dev_login_returns_token_and_me(auth_client: TestClient) -> None:

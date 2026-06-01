@@ -11,10 +11,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import smtplib
-from email.message import EmailMessage
 
 from app.core.config.settings import get_settings
 from app.core.errors import AppError
+from app.infrastructure.email.templates import build_email_verification_message
 
 logger = logging.getLogger(__name__)
 
@@ -80,24 +80,15 @@ def send_email_verification_code_via_smtp(
     if not settings.smtp_host or not settings.smtp_username or not settings.smtp_password:
         raise AppError("SMTP_CONFIG_MISSING", "SMTP 配置缺失", status_code=500)
 
-    from_email = settings.smtp_from_email or settings.smtp_username
-    message = EmailMessage()
-    message["Subject"] = "MakersHub 邮箱验证码"
-    message["From"] = f"{settings.smtp_from_name} <{from_email}>"
-    message["To"] = email
-    message.set_content(
-        "\n".join(
-            [
-                "你的 MakersHub 邮箱验证码如下：",
-                "",
-                code,
-                "",
-                f"验证码用途：{purpose}",
-                f"有效期：{expires_minutes} 分钟",
-                "",
-                "如果不是你本人操作，请忽略这封邮件。",
-            ]
-        )
+    message = build_email_verification_message(
+        email=email,
+        purpose=purpose,
+        code=code,
+        expires_minutes=expires_minutes,
+        from_email=settings.smtp_from_email or settings.smtp_username,
+        from_name=settings.smtp_from_name,
+        home_url=settings.email_home_url,
+        brand_image_url=settings.email_brand_image_url,
     )
 
     try:

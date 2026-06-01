@@ -51,3 +51,20 @@ pnpm docker:infra
 ```
 
 详细端口和服务说明见 `infra/docker/README.md`。
+
+## 公共静态资源
+
+邮件品牌图、公开宣传图等可以放在 MinIO public bucket 中，再由静态域名反向代理出来。
+
+当前提供了示例配置：
+
+- `infra/nginx/static-minio.example.conf`
+
+推荐生产入口：
+
+```text
+https://static.scumaker.com/public/brand/SCUMAKER_logowithtext_email.png
+  -> makershub-public-prod/brand/SCUMAKER_logowithtext_email.png
+```
+
+只有 public bucket 可以这样暴露。物资材料、项目附件、审批材料等私有文件仍然必须走后端鉴权和短期签名 URL。

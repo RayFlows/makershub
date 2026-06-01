@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     smtp_password: str | None = Field(None, validation_alias="SMTP_PASSWORD")
     smtp_from_email: str | None = Field(None, validation_alias="SMTP_FROM_EMAIL")
     smtp_from_name: str = Field("MakersHub", validation_alias="SMTP_FROM_NAME")
+    email_home_url: str = Field("https://scumaker.com", validation_alias="EMAIL_HOME_URL")
+    email_brand_image_url: str | None = Field(None, validation_alias="EMAIL_BRAND_IMAGE_URL")
 
     # --- 数据库配置 ---
     database_url: str = Field(

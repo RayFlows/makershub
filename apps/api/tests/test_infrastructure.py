@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from app.core.config.settings import get_settings
 from app.core.errors import AppError
 from app.infrastructure.email import send_email_verification_code
+from app.infrastructure.email.templates import build_email_verification_message
 from app.interfaces.http.v1.system import router as system_router_module
 from app.main import create_app
 
@@ -165,6 +166,40 @@ async def test_email_log_mode_is_forbidden_in_production(monkeypatch) -> None:
         get_settings.cache_clear()
 
     assert exc_info.value.code == "EMAIL_LOG_MODE_FORBIDDEN"
+
+
+def test_email_verification_message_has_html_text_and_brand_header() -> None:
+    """验证码邮件应同时提供 HTML、纯文本和稳定品牌头。"""
+
+    message = build_email_verification_message(
+        email="member@example.com",
+        purpose="bind_email",
+        code="123456",
+        expires_minutes=5,
+        from_email="auth@scumaker.com",
+        from_name="MakersHub",
+        home_url="https://scumaker.com",
+        brand_image_url="https://static.scumaker.com/public/brand/SCUMAKER_logowithtext_email.png",
+    )
+    parts = list(message.walk())
+    text_part = next(part for part in parts if part.get_content_type() == "text/plain")
+    html_part = next(part for part in parts if part.get_content_type() == "text/html")
+
+    assert message["Subject"] == "MakersHub 邮箱验证码"
+    assert "123456" in text_part.get_content()
+    assert "绑定邮箱" in text_part.get_content()
+    assert "https://scumaker.com" in text_part.get_content()
+    assert "https://scumaker.com" in html_part.get_content()
+    assert "SCUMAKER_logowithtext_email.png" in html_part.get_content()
+    assert "<img" in html_part.get_content()
+    assert 'content="light only"' in html_part.get_content()
+    assert 'bgcolor="#fffffe"' in html_part.get_content()
+    assert "background-color:#fffffe" in html_part.get_content()
+    assert "linear-gradient(#fffffe,#fffffe)" in html_part.get_content()
+    assert "#f3f5f7" not in html_part.get_content()
+    assert "border-left" not in html_part.get_content()
+    assert "cid:" not in html_part.get_content()
+    assert "123456" in html_part.get_content()
 
 
 def test_readiness_returns_503_when_dependency_is_unhealthy(monkeypatch) -> None:

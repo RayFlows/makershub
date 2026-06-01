@@ -94,6 +94,8 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-MakersHub}
+      EMAIL_HOME_URL: ${EMAIL_HOME_URL:-https://scumaker.com}
+      EMAIL_BRAND_IMAGE_URL: ${EMAIL_BRAND_IMAGE_URL:-}
       DATABASE_URL: ${DATABASE_URL:-mysql+aiomysql://makershub:makershub@mysql:3306/makershub_dev}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_DIR: ${LOG_DIR:-logs}
